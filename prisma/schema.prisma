@@ -1,0 +1,842 @@
+// Prisma schema for Bazaar Printing HR Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  HR_ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+}
+
+enum PayType {
+  HOURLY
+  SALARY
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ScheduleType {
+  FIXED
+  SHIFT_BASED
+  HOURS_BASED
+  FLEXIBLE
+}
+
+enum IdDocType {
+  SSN
+  PASSPORT
+  WORK_PERMIT
+  DRIVERS_LICENSE
+  GOVERNMENT_ID
+}
+
+enum TShirtSize {
+  XS
+  S
+  M
+  L
+  XL
+  XXL
+  XXXL
+}
+
+enum TimeEventType {
+  CLOCK_IN
+  CLOCK_OUT
+}
+
+enum TimeEntrySource {
+  QR_KIOSK
+  MOBILE_IN_ZONE
+  MOBILE_OFFSITE
+  MANUAL_HR
+  MANUAL_MANAGER
+}
+
+enum AccrualEventType {
+  ACCRUAL
+  MANUAL_ADJUSTMENT
+  YEAR_END_ROLLOVER
+  BALANCE_RESET
+}
+
+enum AccrualType {
+  LUMP_SUM
+  ACCRUED
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum YearEndRolloverPolicy {
+  CARRY_OVER
+  EXPIRE
+  CASH_OUT
+}
+
+enum SopStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum DocumentRepositoryScope {
+  COMPANY_WIDE
+  POSITION_SPECIFIC
+}
+
+enum DocumentType {
+  SOP
+  POLICY
+  NDA
+  TAX_FORM
+  SAFETY_DOCUMENT
+  TRAINING_MATERIAL
+  EMPLOYEE_AGREEMENT
+  ONBOARDING_DOCUMENT
+  OTHER
+}
+
+enum OnboardingStepType {
+  FORM
+  DOCUMENT_SIGN
+  SURVEY
+  FILE_UPLOAD
+}
+
+enum OnboardingInstanceStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum OnboardingStepProgressStatus {
+  LOCKED
+  AVAILABLE
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum OffboardingInstanceStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  IN_APP
+}
+
+enum NotificationStatus {
+  SENT
+  FAILED
+  READ
+}
+
+enum WriteUpCategory {
+  ATTENDANCE
+  CONDUCT
+  PERFORMANCE
+  SAFETY
+  POLICY
+  OTHER
+}
+
+enum GeneratedDocumentType {
+  OFFER_LETTER
+  WELCOME_EMAIL
+}
+
+model EmployeeOTP {
+  id        String    @id @default(cuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([phone])
+}
+
+enum PayFrequency {
+  WEEKLY
+  BIWEEKLY
+  SEMI_MONTHLY
+  MONTHLY
+}
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  name       String?
+  role       Role     @default(EMPLOYEE)
+  employeeId String?  @unique
+  employee   Employee? @relation(fields: [employeeId], references: [id])
+  mustChangePassword Boolean @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  editedTimeEntries TimeEntry[] @relation("EditedByUser")
+  reviewedLeaveRequests LeaveRequest[] @relation("ReviewedByUser")
+  adjustedLeaveBalances LeaveBalance[] @relation("AdjustedByUser")
+  adjustedAccrualLogs LeaveAccrualLog[] @relation("AccrualAdjustedByUser")
+  uploadedSops Sop[] @relation("UploadedByUser")
+  assignedDocuments DocumentAssignment[] @relation("AssignedDocuments")
+  auditLogs AuditLog[]
+  updatedCompanySettings CompanySettings[] @relation("UpdatedByUser")
+  createdImpersonationTokens EmployeeImpersonationToken[] @relation("ImpersonationTokenCreator")
+  createdOnboardingTemplates OnboardingTemplate[] @relation("CreatedByUser")
+  triggeredOnboardings OnboardingInstance[] @relation("TriggeredByUser")
+  sentOnboardingReminders OnboardingReminder[] @relation("SentByUser")
+  createdOffboardingTemplates OffboardingTemplate[] @relation("CreatedOffboardingTemplates")
+  triggeredOffboardings OffboardingInstance[] @relation("TriggeredOffboarding")
+}
+
+model Employee {
+  id                      String         @id @default(cuid())
+  firstName               String
+  lastName                String
+  preferredName           String?
+  personalEmail           String?
+  workEmail               String?
+  phone                   String?
+  departmentId            String?
+  department              Department?    @relation(fields: [departmentId], references: [id])
+  positionId              String?
+  position                Position?      @relation(fields: [positionId], references: [id])
+  jobTitle                String?
+  employmentType          EmploymentType @default(FULL_TIME)
+  managerId               String?
+  manager                 Employee?      @relation("EmployeeManager", fields: [managerId], references: [id])
+  directReports           Employee[]     @relation("EmployeeManager")
+  payType                 PayType        @default(HOURLY)
+  payRate                 Float?
+  payFrequency            PayFrequency?
+  isNonExempt             Boolean        @default(true)
+  overtimeEligible        Boolean        @default(true)
+  compensationEffectiveDate   DateTime?
+  contractEndDate             DateTime?
+  probationEndDate            DateTime?
+  nextReviewDate              DateTime?
+  benefitsEnrollmentDeadline  DateTime?
+  startDate               DateTime?
+  status                  EmployeeStatus @default(ACTIVE)
+  qrCodeToken             String?        @unique
+  scheduleType            ScheduleType   @default(FIXED)
+  scheduleConfig          Json?
+  mealBreak1WaiverEnabled Boolean        @default(false)
+  mealBreak2WaiverEnabled Boolean        @default(false)
+  emergencyContactName    String?
+  emergencyContactPhone   String?
+  emergencyContactRelation String?
+  addressStreet           String?
+  addressCity             String?
+  addressState            String?
+  addressZip              String?
+  addressCountry          String?        @default("US")
+  birthdate               DateTime?
+  tShirtSize              TShirtSize?
+  allergies               String?
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  user              User?
+  timeEntries       TimeEntry[]
+  leaveRequests     LeaveRequest[]
+  leaveBalances     LeaveBalance[]
+  individualHolidays Holiday[] @relation("EmployeeHoliday")
+  sopAcknowledgments SopAcknowledgment[]
+  documentAssignments DocumentAssignment[]
+  onboardingInstances OnboardingInstance[]
+  notifications     Notification[]
+  writeUps              WriteUp[]
+  managerNotes          ManagerNote[]
+  generatedDocuments    GeneratedDocument[]
+  impersonationTokens   EmployeeImpersonationToken[]
+  documentShareLinks    DocumentShareLink[]
+  compensationHistory   CompensationHistory[]
+  identityDocuments     EmployeeIdentityDocument[]
+  offboardingInstances  OffboardingInstance[]
+  leaveAccrualLogs      LeaveAccrualLog[]
+}
+
+model EmployeeIdentityDocument {
+  id             String    @id @default(cuid())
+  employeeId     String
+  employee       Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  docType        IdDocType
+  documentNumber String?
+  country        String?
+  expiryDate     DateTime?
+  notes          String?
+  fileUrl        String?
+  fileName       String?
+  createdBy      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([employeeId, createdAt])
+}
+
+model CompensationHistory {
+  id            String    @id @default(cuid())
+  employeeId    String
+  employee      Employee  @relation(fields: [employeeId], references: [id])
+  previousRate  Float?
+  newRate       Float
+  payType       PayType
+  effectiveDate DateTime
+  changedBy     String
+  note          String?
+  createdAt     DateTime  @default(now())
+
+  @@index([employeeId, effectiveDate])
+}
+
+model DocumentShareLink {
+  id                  String    @id @default(cuid())
+  employeeId          String
+  employee            Employee  @relation(fields: [employeeId], references: [id])
+  token               String    @unique
+  channel             String
+  recipient           String
+  expiresAt           DateTime
+  viewedAt            DateTime?
+  completedAt         DateTime?
+  createdBy           String
+  createdAt           DateTime  @default(now())
+  selectedDocumentIds String[]
+
+  @@index([employeeId])
+  @@index([token])
+}
+
+model Department {
+  id          String     @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  employees Employee[]
+  positions Position[]
+  documentLinks DocumentPositionLink[]
+}
+
+model Position {
+  id           String     @id @default(cuid())
+  name         String
+  description  String?
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  employees            Employee[]
+  onboardingTemplates  OnboardingTemplate[]
+  offboardingTemplate  OffboardingTemplate?
+  documentLinks        DocumentPositionLink[]
+  accrualPolicy        AccrualPolicy?
+
+  @@index([departmentId])
+}
+
+model AccrualPolicy {
+  id                    String   @id @default(cuid())
+  positionId            String   @unique
+  position              Position @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  hoursWorkedPerAccrual Float    @default(30)
+  hoursEarnedPerAccrual Float    @default(1)
+  ptoAccrualCapHours    Float    @default(120)
+  ptoRolloverCapHours   Float    @default(40)
+  sickAccrualCapHours   Float    @default(80)
+  usableAfterDays       Int      @default(90)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model TimeEntry {
+  id            String          @id @default(cuid())
+  employeeId    String
+  employee      Employee        @relation(fields: [employeeId], references: [id])
+  eventType     TimeEventType
+  timestamp     DateTime
+  source        TimeEntrySource
+  editedById    String?
+  editedBy      User?           @relation("EditedByUser", fields: [editedById], references: [id])
+  editReason    String?
+  isFlagged     Boolean         @default(false)
+  flagReason    String?
+  locationLat   Float?
+  locationLng   Float?
+  locationZoneId String?
+  locationZone  LocationZone?   @relation(fields: [locationZoneId], references: [id])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([employeeId, timestamp])
+}
+
+model LocationZone {
+  id           String      @id @default(cuid())
+  name         String
+  lat          Float
+  lng          Float
+  radiusMeters Int
+  isActive     Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  timeEntries TimeEntry[]
+}
+
+model LeaveType {
+  id           String      @id @default(cuid())
+  name         String
+  slug         String?     @unique
+  defaultDays  Float       @default(0)
+  accrualType  AccrualType @default(LUMP_SUM)
+  isPaid       Boolean     @default(true)
+  isActive     Boolean     @default(true)
+  carryOver    Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+
+  leaveRequests LeaveRequest[]
+  leaveBalances LeaveBalance[]
+  accrualLogs   LeaveAccrualLog[]
+}
+
+model LeaveRequest {
+  id            String             @id @default(cuid())
+  employeeId    String
+  employee      Employee           @relation(fields: [employeeId], references: [id])
+  leaveTypeId   String
+  leaveType     LeaveType          @relation(fields: [leaveTypeId], references: [id])
+  startDate     DateTime
+  endDate       DateTime
+  workingDays   Float
+  status        LeaveRequestStatus @default(PENDING)
+  notes         String?
+  reviewedById  String?
+  reviewedBy    User?              @relation("ReviewedByUser", fields: [reviewedById], references: [id])
+  reviewComment String?
+  submittedAt   DateTime           @default(now())
+  reviewedAt    DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([employeeId, status])
+}
+
+model LeaveBalance {
+  id                 String    @id @default(cuid())
+  employeeId         String
+  employee           Employee  @relation(fields: [employeeId], references: [id])
+  leaveTypeId        String
+  leaveType          LeaveType @relation(fields: [leaveTypeId], references: [id])
+  year               Int
+  allowance          Float     @default(0)
+  usedDays           Float     @default(0)
+  pendingDays        Float     @default(0)
+  balanceHours       Float     @default(0)
+  accrualHoursEarned Float     @default(0)
+  accrualHoursWorked Float     @default(0)
+  lastAccrualAt      DateTime?
+  yearStartBalance   Float     @default(0)
+  adjustedById       String?
+  adjustedBy         User?     @relation("AdjustedByUser", fields: [adjustedById], references: [id])
+  adjustmentReason   String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([employeeId, leaveTypeId, year])
+}
+
+model LeaveAccrualLog {
+  id           String           @id @default(cuid())
+  employeeId   String
+  employee     Employee         @relation(fields: [employeeId], references: [id])
+  leaveTypeId  String
+  leaveType    LeaveType        @relation(fields: [leaveTypeId], references: [id])
+  type         AccrualEventType
+  hoursWorked  Float?
+  hoursEarned  Float
+  balanceAfter Float
+  note         String?
+  adjustedById String?
+  adjustedBy   User?            @relation("AccrualAdjustedByUser", fields: [adjustedById], references: [id])
+  createdAt    DateTime         @default(now())
+
+  @@index([employeeId, leaveTypeId, createdAt])
+}
+
+model Holiday {
+  id                 String    @id @default(cuid())
+  name               String
+  date               DateTime
+  isCompanyWide      Boolean   @default(true)
+  employeeId         String?
+  employee           Employee? @relation("EmployeeHoliday", fields: [employeeId], references: [id])
+  isPaid             Boolean   @default(true)
+  isRecurringAnnually Boolean  @default(false)
+  createdAt          DateTime  @default(now())
+
+  @@unique([name, date])
+}
+
+model Sop {
+  id            String                  @id @default(cuid())
+  title         String
+  description   String                  @default("")
+  documentType  DocumentType            @default(SOP)
+  scope         DocumentRepositoryScope @default(POSITION_SPECIFIC)
+  version       Int                     @default(1)
+  departmentIds String[]
+  positionIds   String[]
+  fileUrl       String
+  effectiveDate DateTime                @default(now())
+  changeSummary String?
+  uploadedById  String
+  uploadedBy    User                    @relation("UploadedByUser", fields: [uploadedById], references: [id])
+  status        SopStatus               @default(ACTIVE)
+  isActive      Boolean                 @default(true)
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  acknowledgments SopAcknowledgment[]
+  assignments     DocumentAssignment[]
+  positionLinks   DocumentPositionLink[]
+}
+
+model DocumentPositionLink {
+  id           String      @id @default(cuid())
+  documentId   String
+  document     Sop         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  positionId   String?
+  position     Position?   @relation(fields: [positionId], references: [id])
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  createdAt    DateTime    @default(now())
+
+  @@index([documentId])
+  @@index([departmentId])
+  @@index([positionId])
+}
+
+model DocumentAssignment {
+  id               String    @id @default(cuid())
+  sopId            String
+  sop              Sop       @relation(fields: [sopId], references: [id], onDelete: Cascade)
+  employeeId       String
+  employee         Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  assignedAt       DateTime  @default(now())
+  assignedById     String
+  assignedBy       User      @relation("AssignedDocuments", fields: [assignedById], references: [id])
+  assignedManually  Boolean   @default(false)
+  isOffboarding     Boolean   @default(false)
+  sentAt            DateTime?
+  offboardingSentAt DateTime?
+  acknowledgedAt    DateTime?
+  signedFileUrl     String?
+  signedAt          DateTime?
+  hrApprovedAt      DateTime?
+  hrApprovedBy      String?
+
+  @@unique([sopId, employeeId, isOffboarding])
+  @@index([employeeId])
+  @@index([employeeId, sentAt])
+  @@index([employeeId, isOffboarding, offboardingSentAt])
+}
+
+model SopAcknowledgment {
+  id             String   @id @default(cuid())
+  sopId          String
+  sop            Sop      @relation(fields: [sopId], references: [id])
+  sopVersion     Int
+  employeeId     String
+  employee       Employee @relation(fields: [employeeId], references: [id])
+  acknowledgedAt DateTime @default(now())
+  reminderCount  Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  @@unique([sopId, employeeId, sopVersion])
+}
+
+model OnboardingTemplate {
+  id                      String   @id @default(cuid())
+  name                    String
+  description             String?
+  positionId              String
+  position                Position @relation(fields: [positionId], references: [id])
+  estimatedCompletionTime String?
+  isActive                Boolean  @default(true)
+  createdById             String
+  createdBy               User     @relation("CreatedByUser", fields: [createdById], references: [id])
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  steps     OnboardingStep[]
+  instances OnboardingInstance[]
+
+  @@index([positionId])
+}
+
+model OnboardingStep {
+  id          String             @id @default(cuid())
+  templateId  String
+  template    OnboardingTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  stepType    OnboardingStepType
+  sortOrder   Int                @default(0)
+  isRequired  Boolean            @default(true)
+  config      Json               @default("{}")
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  progress OnboardingStepProgress[]
+
+  @@index([templateId, sortOrder])
+}
+
+model OnboardingInstance {
+  id            String                   @id @default(cuid())
+  employeeId    String
+  employee      Employee                 @relation(fields: [employeeId], references: [id])
+  templateId    String
+  template      OnboardingTemplate       @relation(fields: [templateId], references: [id])
+  triggeredById String
+  triggeredBy   User                     @relation("TriggeredByUser", fields: [triggeredById], references: [id])
+  status        OnboardingInstanceStatus @default(NOT_STARTED)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  stepProgress OnboardingStepProgress[]
+  reminders    OnboardingReminder[]
+
+  @@index([employeeId, status])
+}
+
+model OnboardingStepProgress {
+  id              String                       @id @default(cuid())
+  instanceId      String
+  instance        OnboardingInstance           @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  stepId          String
+  step            OnboardingStep               @relation(fields: [stepId], references: [id])
+  status          OnboardingStepProgressStatus @default(LOCKED)
+  completedAt     DateTime?
+  responseData    Json?
+  uploadedFileUrl String?
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+
+  @@unique([instanceId, stepId])
+}
+
+model OnboardingReminder {
+  id         String             @id @default(cuid())
+  instanceId String
+  instance   OnboardingInstance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  sentById   String
+  sentBy     User               @relation("SentByUser", fields: [sentById], references: [id])
+  sentAt     DateTime           @default(now())
+  createdAt  DateTime           @default(now())
+}
+
+model OffboardingTemplate {
+  id          String              @id @default(cuid())
+  name        String
+  description String?
+  positionId  String              @unique
+  position    Position            @relation(fields: [positionId], references: [id])
+  isActive    Boolean             @default(true)
+  createdById String
+  createdBy   User                @relation("CreatedOffboardingTemplates", fields: [createdById], references: [id])
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  steps     OffboardingStep[]
+  instances OffboardingInstance[]
+}
+
+model OffboardingStep {
+  id          String              @id @default(cuid())
+  templateId  String
+  template    OffboardingTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  stepType    OnboardingStepType
+  sortOrder   Int                 @default(0)
+  isRequired  Boolean             @default(true)
+  config      Json                @default("{}")
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  progress OffboardingStepProgress[]
+
+  @@index([templateId, sortOrder])
+}
+
+model OffboardingInstance {
+  id            String                    @id @default(cuid())
+  employeeId    String
+  employee      Employee                  @relation(fields: [employeeId], references: [id])
+  templateId    String?
+  template      OffboardingTemplate?      @relation(fields: [templateId], references: [id])
+  triggeredById String
+  triggeredBy   User                      @relation("TriggeredOffboarding", fields: [triggeredById], references: [id])
+  status        OffboardingInstanceStatus @default(IN_PROGRESS)
+  lastDayDate   DateTime?
+  initiatedAt   DateTime                  @default(now())
+  completedAt   DateTime?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+
+  stepProgress OffboardingStepProgress[]
+
+  @@index([employeeId, status])
+}
+
+model OffboardingStepProgress {
+  id              String                       @id @default(cuid())
+  instanceId      String
+  instance        OffboardingInstance          @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  stepId          String
+  step            OffboardingStep              @relation(fields: [stepId], references: [id])
+  status          OnboardingStepProgressStatus @default(LOCKED)
+  completedAt     DateTime?
+  responseData    Json?
+  uploadedFileUrl String?
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+
+  @@unique([instanceId, stepId])
+}
+
+model Notification {
+  id              String             @id @default(cuid())
+  employeeId      String
+  employee        Employee           @relation(fields: [employeeId], references: [id])
+  eventType       String
+  channel         NotificationChannel
+  sentAt          DateTime?
+  status          NotificationStatus @default(SENT)
+  contentSnapshot Json?
+  createdAt       DateTime           @default(now())
+
+  @@index([employeeId, status])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  action      String
+  targetId    String?
+  targetTable String?
+  oldValue    Json?
+  newValue    Json?
+  reason      String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([targetTable, targetId])
+}
+
+model WriteUp {
+  id               String          @id @default(cuid())
+  employeeId       String
+  employee         Employee        @relation(fields: [employeeId], references: [id])
+  number           Int
+  category         WriteUpCategory
+  date             DateTime
+  description      String
+  consequence      String?
+  issuedBy         String
+  employeeSignedAt DateTime?
+  acknowledgedAt   DateTime?
+  acknowledgedBy   String?
+  attachmentUrl    String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@unique([employeeId, number])
+  @@index([employeeId])
+}
+
+model ManagerNote {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  content    String
+  issuedBy   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([employeeId])
+}
+
+model GeneratedDocument {
+  id          String                @id @default(cuid())
+  employeeId  String
+  employee    Employee              @relation(fields: [employeeId], references: [id])
+  type        GeneratedDocumentType
+  fileUrl     String
+  generatedBy String
+  generatedAt DateTime              @default(now())
+
+  @@index([employeeId, type])
+}
+
+model EmployeeImpersonationToken {
+  id         String    @id @default(cuid())
+  token      String    @unique
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+  createdBy  String
+  creator    User      @relation("ImpersonationTokenCreator", fields: [createdBy], references: [id])
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([token])
+  @@index([employeeId])
+}
+
+model CompanySettings {
+  id                      String                @id @default("default")
+  overtimeThresholdHours  Float                 @default(40)
+  coverageWarningPercent  Float                 @default(30)
+  lateThresholdMinutes    Int                   @default(15)
+  yearEndRolloverPolicy   YearEndRolloverPolicy @default(CARRY_OVER)
+  updatedById             String?
+  updatedBy                 User?                 @relation("UpdatedByUser", fields: [updatedById], references: [id])
+  updatedAt               DateTime              @updatedAt
+}
