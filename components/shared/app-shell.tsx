@@ -352,7 +352,13 @@ export function AppShell({ children }: AppShellProps) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
-                  <Link href="/employee/profile">My Profile</Link>
+                  <Link href={
+                    role === "HR_ADMIN" || role === "SUPER_ADMIN"
+                      ? "/admin/profile"
+                      : role === "MANAGER"
+                        ? "/admin/profile"
+                        : "/employee/profile"
+                  }>My Profile</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
