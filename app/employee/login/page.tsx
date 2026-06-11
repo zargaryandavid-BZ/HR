@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, Search } from "lucide-react";
+import { Search } from "lucide-react";
 
 type EmployeeOption = {
   id: string;
@@ -28,7 +28,6 @@ function EmployeeLoginForm() {
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<EmployeeOption | null>(null);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [digits, setDigits] = useState<string[]>(Array(6).fill(""));
   const [loading, setLoading] = useState(false);
   const [loadingEmployees, setLoadingEmployees] = useState(true);
@@ -36,25 +35,12 @@ function EmployeeLoginForm() {
   const [resendCountdown, setResendCountdown] = useState(0);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
   // Load employee list on mount
   useEffect(() => {
     fetch("/api/employee/auth/employees")
       .then((r) => r.json())
       .then((j) => setEmployees(j.data ?? []))
       .finally(() => setLoadingEmployees(false));
-  }, []);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   // Resend countdown
@@ -160,97 +146,89 @@ function EmployeeLoginForm() {
   }
 
   return (
-    <div className="flex h-dvh items-center justify-center overflow-y-auto bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+    <div className="flex min-h-dvh items-center justify-center overflow-y-auto bg-gradient-to-br from-slate-50 to-slate-100 p-4">
       <div className="w-full max-w-sm">
         {/* Branding */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary text-primary-foreground text-xl font-bold mb-4">
-            PP
+            HR
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Employee Portal</h1>
-          <p className="text-sm text-slate-500 mt-1">Pixel Press Print Inc</p>
+          <p className="text-sm text-slate-500 mt-1">Bazaar Printing</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border p-6">
           {step === "select" ? (
             <div className="space-y-4">
-              <div className="text-center mb-2">
-                <p className="text-sm font-medium text-slate-700">Select your name to sign in</p>
+              <p className="text-sm font-medium text-slate-700 text-center">
+                Select your name to sign in
+              </p>
+
+              {/* Search box */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search your name…"
+                  value={search}
+                  onChange={(e) => { setSearch(e.target.value); setSelected(null); }}
+                  className="w-full rounded-lg border border-input bg-slate-50 pl-9 pr-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-colors"
+                />
               </div>
 
-              {/* Name selector */}
-              <div className="relative" ref={dropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setDropdownOpen((o) => !o)}
-                  className="w-full flex items-center justify-between gap-2 rounded-lg border border-input bg-white px-3 py-2.5 text-sm text-left shadow-sm hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-colors"
-                >
-                  <span className={selected ? "text-slate-900 font-medium" : "text-slate-400"}>
-                    {selected ? selected.name : "Search your name…"}
-                  </span>
-                  <ChevronDown className={`h-4 w-4 text-slate-400 shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
-                </button>
-
-                {dropdownOpen && (
-                  <div className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-lg overflow-hidden">
-                    {/* Search input */}
-                    <div className="flex items-center gap-2 px-3 py-2 border-b">
-                      <Search className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                      <input
-                        autoFocus
-                        type="text"
-                        placeholder="Type to search…"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="flex-1 text-sm outline-none bg-transparent"
-                      />
-                    </div>
-
-                    <div className="max-h-52 overflow-y-auto">
-                      {loadingEmployees ? (
-                        <p className="px-3 py-4 text-sm text-slate-400 text-center">Loading…</p>
-                      ) : filtered.length === 0 ? (
-                        <p className="px-3 py-4 text-sm text-slate-400 text-center">No employees found</p>
-                      ) : (
-                        filtered.map((emp) => (
-                          <button
-                            key={emp.id}
-                            type="button"
-                            onClick={() => {
-                              setSelected(emp);
-                              setDropdownOpen(false);
-                              setSearch("");
-                              setError(null);
-                            }}
-                            className="w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-slate-50 text-left transition-colors"
-                          >
-                            <span className="font-medium text-slate-800">{emp.name}</span>
-                            {emp.maskedPhone && (
-                              <span className="text-xs text-slate-400 font-mono">{emp.maskedPhone}</span>
-                            )}
-                          </button>
-                        ))
-                      )}
-                    </div>
+              {/* Employee list — always visible */}
+              <div className="rounded-lg border overflow-hidden">
+                {loadingEmployees ? (
+                  <div className="flex flex-col gap-2 p-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-11 rounded-md bg-slate-100 animate-pulse" />
+                    ))}
+                  </div>
+                ) : filtered.length === 0 ? (
+                  <p className="px-4 py-6 text-sm text-slate-400 text-center">
+                    {search ? "No employees match your search." : "No employees found."}
+                  </p>
+                ) : (
+                  <div className="max-h-60 overflow-y-auto divide-y">
+                    {filtered.map((emp) => (
+                      <button
+                        key={emp.id}
+                        type="button"
+                        onClick={() => { setSelected(emp); setError(null); }}
+                        className={`w-full flex items-center justify-between px-4 py-3 text-sm text-left transition-colors ${
+                          selected?.id === emp.id
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="font-medium">{emp.name}</span>
+                        {emp.maskedPhone && (
+                          <span className={`text-xs font-mono ${selected?.id === emp.id ? "text-primary-foreground/70" : "text-slate-400"}`}>
+                            {emp.maskedPhone}
+                          </span>
+                        )}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
 
               {/* Masked phone confirmation */}
-              {selected && selected.maskedPhone && (
+              {selected?.maskedPhone && (
                 <p className="text-xs text-center text-slate-500">
-                  Code will be sent to <span className="font-mono font-medium">{selected.maskedPhone}</span>
+                  A code will be sent to{" "}
+                  <span className="font-mono font-medium">{selected.maskedPhone}</span>
                 </p>
               )}
 
-              {error && <p className="text-sm text-destructive">{error}</p>}
+              {error && <p className="text-sm text-destructive text-center">{error}</p>}
 
               <Button
                 className="w-full"
                 onClick={handleSendCode}
                 disabled={!selected || loading}
               >
-                {loading ? "Sending…" : "Send code"}
+                {loading ? "Sending…" : "Send verification code"}
               </Button>
             </div>
           ) : (

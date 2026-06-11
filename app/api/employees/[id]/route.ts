@@ -9,6 +9,7 @@ import {
 } from "@/lib/employees/personal-info";
 import { logIndividualSettingsAudit } from "@/lib/individual-settings/audit";
 import { isOnboardingInProgress } from "@/lib/onboarding/instance-status";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -210,5 +211,59 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     );
   } catch {
     return apiError("Server error", "Failed to update employee", 500);
+  }
+}
+
+/** Permanently delete an employee and ALL their associated data (SUPER_ADMIN only) */
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
+  try {
+    const session = await getSession();
+    if (!session) return apiError("Unauthorized", "Not authenticated", 401);
+    if (session.role !== "SUPER_ADMIN") {
+      return apiError("Forbidden", "Only Super Admins can permanently delete employees", 403);
+    }
+
+    const { id } = await params;
+
+    const employee = await prisma.employee.findUnique({
+      where: { id },
+      include: { user: { select: { id: true, email: true } } },
+    });
+    if (!employee) return apiError("Not found", "Employee not found", 404);
+
+    // Hard-delete the employee — all child records cascade automatically
+    await prisma.employee.delete({ where: { id } });
+
+    // Also delete the Supabase auth user so they can't log in anymore
+    if (employee.user?.email) {
+      try {
+        const adminClient = createAdminClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
+          { auth: { autoRefreshToken: false, persistSession: false } }
+        );
+        const { data: authUsers } = await adminClient.auth.admin.listUsers();
+        const authUser = authUsers?.users?.find((u) => u.email === employee.user!.email);
+        if (authUser) {
+          await adminClient.auth.admin.deleteUser(authUser.id);
+        }
+      } catch {
+        // Auth deletion is best-effort; DB record is already gone
+      }
+    }
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.id,
+        action: "DELETE_EMPLOYEE",
+        targetId: id,
+        targetTable: "Employee",
+        reason: `Employee permanently deleted by ${session.email ?? session.id}`,
+      },
+    });
+
+    return Response.json(apiSuccess(null, "Employee permanently deleted"));
+  } catch {
+    return apiError("Server error", "Failed to delete employee", 500);
   }
 }

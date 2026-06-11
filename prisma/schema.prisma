@@ -201,7 +201,7 @@ model User {
   name       String?
   role       Role     @default(EMPLOYEE)
   employeeId String?  @unique
-  employee   Employee? @relation(fields: [employeeId], references: [id])
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   mustChangePassword Boolean @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -236,7 +236,7 @@ model Employee {
   jobTitle                String?
   employmentType          EmploymentType @default(FULL_TIME)
   managerId               String?
-  manager                 Employee?      @relation("EmployeeManager", fields: [managerId], references: [id])
+  manager                 Employee?      @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
   directReports           Employee[]     @relation("EmployeeManager")
   payType                 PayType        @default(HOURLY)
   payRate                 Float?
@@ -311,7 +311,7 @@ model EmployeeIdentityDocument {
 model CompensationHistory {
   id            String    @id @default(cuid())
   employeeId    String
-  employee      Employee  @relation(fields: [employeeId], references: [id])
+  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   previousRate  Float?
   newRate       Float
   payType       PayType
@@ -326,7 +326,7 @@ model CompensationHistory {
 model DocumentShareLink {
   id                  String    @id @default(cuid())
   employeeId          String
-  employee            Employee  @relation(fields: [employeeId], references: [id])
+  employee            Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   token               String    @unique
   channel             String
   recipient           String
@@ -389,7 +389,7 @@ model AccrualPolicy {
 model TimeEntry {
   id             String          @id @default(cuid())
   employeeId     String
-  employee       Employee        @relation(fields: [employeeId], references: [id])
+  employee       Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   clockIn        DateTime
   clockOut       DateTime?
   hoursWorked    Float?
@@ -451,7 +451,7 @@ model LeaveType {
 model LeaveRequest {
   id            String             @id @default(cuid())
   employeeId    String
-  employee      Employee           @relation(fields: [employeeId], references: [id])
+  employee      Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   leaveTypeId   String
   leaveType     LeaveType          @relation(fields: [leaveTypeId], references: [id])
   startDate     DateTime
@@ -473,7 +473,7 @@ model LeaveRequest {
 model LeaveBalance {
   id                 String    @id @default(cuid())
   employeeId         String
-  employee           Employee  @relation(fields: [employeeId], references: [id])
+  employee           Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   leaveTypeId        String
   leaveType          LeaveType @relation(fields: [leaveTypeId], references: [id])
   year               Int
@@ -497,7 +497,7 @@ model LeaveBalance {
 model LeaveAccrualLog {
   id           String           @id @default(cuid())
   employeeId   String
-  employee     Employee         @relation(fields: [employeeId], references: [id])
+  employee     Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   leaveTypeId  String
   leaveType    LeaveType        @relation(fields: [leaveTypeId], references: [id])
   type         AccrualEventType
@@ -518,7 +518,7 @@ model Holiday {
   date               DateTime
   isCompanyWide      Boolean   @default(true)
   employeeId         String?
-  employee           Employee? @relation("EmployeeHoliday", fields: [employeeId], references: [id])
+  employee           Employee? @relation("EmployeeHoliday", fields: [employeeId], references: [id], onDelete: SetNull)
   isPaid             Boolean   @default(true)
   isRecurringAnnually Boolean  @default(false)
   createdAt          DateTime  @default(now())
@@ -596,7 +596,7 @@ model SopAcknowledgment {
   sop            Sop      @relation(fields: [sopId], references: [id])
   sopVersion     Int
   employeeId     String
-  employee       Employee @relation(fields: [employeeId], references: [id])
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   acknowledgedAt DateTime @default(now())
   reminderCount  Int      @default(0)
   createdAt      DateTime @default(now())
@@ -644,7 +644,7 @@ model OnboardingStep {
 model OnboardingInstance {
   id            String                   @id @default(cuid())
   employeeId    String
-  employee      Employee                 @relation(fields: [employeeId], references: [id])
+  employee      Employee                 @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   templateId    String
   template      OnboardingTemplate       @relation(fields: [templateId], references: [id])
   triggeredById String
@@ -724,7 +724,7 @@ model OffboardingStep {
 model OffboardingInstance {
   id            String                    @id @default(cuid())
   employeeId    String
-  employee      Employee                  @relation(fields: [employeeId], references: [id])
+  employee      Employee                  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   templateId    String?
   template      OffboardingTemplate?      @relation(fields: [templateId], references: [id])
   triggeredById String
@@ -760,7 +760,7 @@ model OffboardingStepProgress {
 model Notification {
   id              String             @id @default(cuid())
   employeeId      String
-  employee        Employee           @relation(fields: [employeeId], references: [id])
+  employee        Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   eventType       String
   channel         NotificationChannel
   sentAt          DateTime?
@@ -791,7 +791,7 @@ model AuditLog {
 model WriteUp {
   id               String          @id @default(cuid())
   employeeId       String
-  employee         Employee        @relation(fields: [employeeId], references: [id])
+  employee         Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   number           Int
   category         WriteUpCategory
   date             DateTime
@@ -812,7 +812,7 @@ model WriteUp {
 model ManagerNote {
   id         String   @id @default(cuid())
   employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id])
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   content    String
   issuedBy   String
   createdAt  DateTime @default(now())
@@ -824,7 +824,7 @@ model ManagerNote {
 model GeneratedDocument {
   id          String                @id @default(cuid())
   employeeId  String
-  employee    Employee              @relation(fields: [employeeId], references: [id])
+  employee    Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   type        GeneratedDocumentType
   fileUrl     String
   generatedBy String
@@ -837,7 +837,7 @@ model EmployeeImpersonationToken {
   id         String    @id @default(cuid())
   token      String    @unique
   employeeId String
-  employee   Employee  @relation(fields: [employeeId], references: [id])
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   createdBy  String
   creator    User      @relation("ImpersonationTokenCreator", fields: [createdBy], references: [id])
   expiresAt  DateTime

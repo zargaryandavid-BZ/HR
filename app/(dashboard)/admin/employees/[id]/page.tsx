@@ -29,7 +29,9 @@ import {
 import { EmployeeNotesSection } from "@/components/employees/individual-settings/employee-notes-section";
 import { EmployeeHrDocumentsSection } from "@/components/employees/individual-settings/employee-hr-documents-section";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
-import { Link2 } from "lucide-react";
+import { EmployeeActivityTab } from "@/components/employees/individual-settings/employee-activity-tab";
+import { Link2, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -49,9 +51,28 @@ export default function EmployeeDetailPage({ params }: PageProps) {
   const tabParam = searchParams.get("tab");
   const defaultTab = tabParam ? TAB_QUERY_MAP[tabParam] ?? "profile" : "profile";
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
   const [toastVariant, setToastVariant] = useState<"success" | "error">("success");
   const { role: viewerRole } = useCurrentUser();
+
+  const handleDeleteEmployee = async () => {
+    if (
+      !confirm(
+        `⚠️ PERMANENTLY DELETE this employee?\n\nThis will remove the employee and ALL their data — time entries, leave records, documents, write-ups, and more.\n\nThis action CANNOT be undone. Type OK to confirm.`
+      )
+    )
+      return;
+    try {
+      const res = await fetch(`/api/employees/${id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? "Failed to delete");
+      router.push("/admin/employees");
+    } catch (err) {
+      setToastVariant("error");
+      setToast(err instanceof Error ? err.message : "Failed to delete employee");
+    }
+  };
 
   const handleSaveSuccess = (message: string) => {
     setToastVariant("success");
@@ -138,30 +159,9 @@ export default function EmployeeDetailPage({ params }: PageProps) {
         }
         actions={
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Open portal + copy link — HR Admin / Super Admin only */}
+            {/* Portal notification + copy link — HR Admin / Super Admin only */}
             {viewerRole && ["HR_ADMIN", "SUPER_ADMIN"].includes(viewerRole) && (
               <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      const res = await fetch("/api/admin/employee/impersonate", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ employeeId: id }),
-                      });
-                      const json = await res.json();
-                      if (!res.ok) throw new Error(json.message ?? "Failed");
-                      window.open(json.data.url, "_blank");
-                    } catch (err) {
-                      setToastVariant("error");
-                      setToast(err instanceof Error ? err.message : "Failed to open portal");
-                    }
-                  }}
-                >
-                  Open Employee Portal ↗
-                </Button>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -214,6 +214,17 @@ export default function EmployeeDetailPage({ params }: PageProps) {
                 Deactivate
               </Button>
             )}
+            {viewerRole === "SUPER_ADMIN" && employee.status === "INACTIVE" && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleDeleteEmployee}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Delete Employee
+              </Button>
+            )}
           </div>
         }
       />
@@ -237,6 +248,7 @@ export default function EmployeeDetailPage({ params }: PageProps) {
             <TabsTrigger value="hr-docs">HR Docs</TabsTrigger>
             <TabsTrigger value="time">Time History</TabsTrigger>
             <TabsTrigger value="leave">Leave</TabsTrigger>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
           </TabsList>
         </div>
 
@@ -384,6 +396,19 @@ export default function EmployeeDetailPage({ params }: PageProps) {
             onSuccess={handleSaveSuccess}
           />
           <EmployeeLeaveHistory employeeId={id} />
+        </TabsContent>
+
+        <TabsContent value="activity" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                Activity &amp; Change History
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EmployeeActivityTab employeeId={id} />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
