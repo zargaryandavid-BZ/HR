@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -23,6 +25,7 @@ function EmployeeLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") ?? "/employee/dashboard";
+  const errorParam = searchParams.get("error");
 
   const [step, setStep] = useState<"select" | "otp">("select");
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
@@ -156,6 +159,12 @@ function EmployeeLoginForm() {
           <h1 className="text-2xl font-bold text-slate-900">Employee Portal</h1>
           <p className="text-sm text-slate-500 mt-1">Bazaar Printing</p>
         </div>
+
+        {errorParam === "invalid_token" && (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 text-center">
+            Your portal link has expired. Please sign in below.
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl shadow-sm border p-6">
           {step === "select" ? (
