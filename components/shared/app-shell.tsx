@@ -326,17 +326,15 @@ export function AppShell({ children }: AppShellProps) {
                   <span>🕐</span>
                   Clock Station
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="hidden sm:flex items-center gap-1.5 text-xs font-medium"
-                  asChild
+                <a
+                  href="/employee/login"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hidden sm:inline-flex items-center gap-1.5 rounded-md border border-primary bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 transition-colors"
                 >
-                  <a href="/employee/login" target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Employee Portal
-                  </a>
-                </Button>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Employee Portal
+                </a>
               </>
             )}
             <NotificationBell />
