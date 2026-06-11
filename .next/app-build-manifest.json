@@ -6,11 +6,6 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
-    "/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/page.js"
-    ],
     "/(dashboard)/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -21,10 +16,15 @@
       "static/chunks/main-app.js",
       "static/chunks/app/(dashboard)/error.js"
     ],
-    "/(dashboard)/admin/dashboard/page": [
+    "/(dashboard)/employee/dashboard/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(dashboard)/admin/dashboard/page.js"
+      "static/chunks/app/(dashboard)/employee/dashboard/page.js"
+    ],
+    "/(dashboard)/admin/timesheet/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(dashboard)/admin/timesheet/page.js"
     ],
     "/api/auth/me/route": [
       "static/chunks/webpack.js",
@@ -36,55 +36,35 @@
       "static/chunks/main-app.js",
       "static/chunks/app/api/notifications/route.js"
     ],
-    "/api/employees/count/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/employees/count/route.js"
-    ],
     "/api/leave/stats/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/leave/stats/route.js"
     ],
-    "/api/dashboard/important-dates/route": [
+    "/api/employees/count/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/dashboard/important-dates/route.js"
+      "static/chunks/app/api/employees/count/route.js"
     ],
-    "/api/admin/dashboard/kpis/route": [
+    "/api/admin/time-entries/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/admin/dashboard/kpis/route.js"
+      "static/chunks/app/api/admin/time-entries/route.js"
     ],
-    "/api/employee/onboarding-tasks/route": [
+    "/api/admin/clock/live/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/employee/onboarding-tasks/route.js"
-    ],
-    "/api/employee/me/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/employee/me/route.js"
-    ],
-    "/api/employee/documents/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/employee/documents/route.js"
+      "static/chunks/app/api/admin/clock/live/route.js"
     ],
     "/api/clock/status/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/clock/status/route.js"
     ],
-    "/api/employee/notifications/route": [
+    "/api/employee/onboarding-tasks/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/employee/notifications/route.js"
-    ],
-    "/api/employee/qr/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/employee/qr/route.js"
+      "static/chunks/app/api/employee/onboarding-tasks/route.js"
     ],
     "/api/employee/leave/route": [
       "static/chunks/webpack.js",
@@ -110,56 +90,6 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/employee/hr-documents/route.js"
-    ],
-    "/api/employee/offboarding-documents/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/employee/offboarding-documents/route.js"
-    ],
-    "/api/employee/important-dates/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/employee/important-dates/route.js"
-    ],
-    "/(dashboard)/admin/timesheet/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(dashboard)/admin/timesheet/page.js"
-    ],
-    "/api/admin/clock/live/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/admin/clock/live/route.js"
-    ],
-    "/api/admin/time-entries/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/admin/time-entries/route.js"
-    ],
-    "/(dashboard)/admin/clock/scanner/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(dashboard)/admin/clock/scanner/page.js"
-    ],
-    "/clock-station/layout": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/clock-station/layout.js"
-    ],
-    "/clock-station/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/clock-station/page.js"
-    ],
-    "/api/admin/time-entries/[id]/route": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/api/admin/time-entries/[id]/route.js"
-    ],
-    "/_not-found/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/_not-found/page.js"
     ]
   }
 }
