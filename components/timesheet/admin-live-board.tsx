@@ -274,7 +274,7 @@ export function AdminLiveBoard() {
                     <th className="px-4 py-2 font-medium">Clock In</th>
                     <th className="px-4 py-2 font-medium">Clock Out</th>
                     <th className="px-4 py-2 font-medium">Hours</th>
-                    <th className="px-4 py-2 font-medium">Breaks</th>
+                    <th className="px-4 py-2 font-medium">Break Time</th>
                     <th className="px-4 py-2 font-medium">Status</th>
                     <th className="px-4 py-2 font-medium">Actions</th>
                   </tr>
@@ -305,7 +305,22 @@ export function AdminLiveBoard() {
                           {entry.hoursWorked != null ? entry.hoursWorked.toFixed(2) : "—"}
                         </td>
                         <td className="px-4 py-2 text-sm text-muted-foreground">
-                          {entry.breaks?.length ?? 0}
+                          {(() => {
+                            const breaks = entry.breaks ?? [];
+                            if (breaks.length === 0) return <span>—</span>;
+                            const totalMin = breaks.reduce(
+                              (sum, b) => sum + (b.durationMin ?? 0),
+                              0
+                            );
+                            const h = Math.floor(totalMin / 60);
+                            const m = totalMin % 60;
+                            const label = h > 0 ? `${h}h ${m}m` : `${m}m`;
+                            return (
+                              <span title={`${breaks.length} break${breaks.length !== 1 ? "s" : ""}`}>
+                                {label}
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-2">
                           <Badge variant={statusBadgeVariant(entry.status)}>{entry.status}</Badge>
