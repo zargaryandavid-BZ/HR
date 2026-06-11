@@ -48,10 +48,9 @@ export function EmployeeClockWidget() {
   const [dismissTimer, setDismissTimer] = useState<NodeJS.Timeout | null>(null);
   const [confirm, setConfirm] = useState<PendingConfirm | null>(null);
 
-  /** Collect GPS on mobile; desktop falls back to server-side IP check. */
+  /** Collect GPS from browser (desktop + mobile); falls back to server-side IP check if denied. */
   async function getCoords(): Promise<{ lat: number; lng: number; accuracy?: number } | undefined> {
-    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (!isMobile || !("geolocation" in navigator)) return undefined;
+    if (!("geolocation" in navigator)) return undefined;
     return new Promise((resolve) => {
       navigator.geolocation.getCurrentPosition(
         (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
