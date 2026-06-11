@@ -1,6 +1,38 @@
+import { NextRequest } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { apiSuccess, apiError } from "@/lib/api-response";
 import { getEmployeeSession } from "@/lib/employee-session";
+
+const updateSchema = z.object({
+  preferredName: z.string().max(80).optional().nullable(),
+  phone: z.string().max(20).optional().nullable(),
+  personalEmail: z.string().email().max(120).optional().nullable(),
+});
+
+/** Update own contact info */
+export async function PATCH(req: NextRequest) {
+  try {
+    const session = await getEmployeeSession();
+    if (!session) return apiError("Unauthorized", "Not authenticated", 401);
+
+    const body = await req.json();
+    const parsed = updateSchema.safeParse(body);
+    if (!parsed.success) {
+      return apiError("Validation failed", parsed.error.errors[0]?.message ?? "Invalid input", 400);
+    }
+
+    const updated = await prisma.employee.update({
+      where: { id: session.employeeId },
+      data: parsed.data,
+      select: { id: true, preferredName: true, phone: true, personalEmail: true },
+    });
+
+    return Response.json(apiSuccess(updated, "Profile updated"));
+  } catch {
+    return apiError("Server error", "Failed to update profile", 500);
+  }
+}
 
 /** Returns the current employee's profile (self only) */
 export async function GET() {
