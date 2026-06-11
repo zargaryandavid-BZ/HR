@@ -36,6 +36,7 @@ function EmployeeLoginForm() {
   const [loadingEmployees, setLoadingEmployees] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resendCountdown, setResendCountdown] = useState(0);
+  const [locationStatus, setLocationStatus] = useState<"idle" | "requesting" | "granted" | "denied">("idle");
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   // Load employee list on mount
@@ -61,8 +62,19 @@ function EmployeeLoginForm() {
     if (!selected) return;
     setError(null);
     setLoading(true);
+
+    // Request location permission at the same time as SMS — browser shows the
+    // permission dialog now so the clock-in widget doesn't need to ask again.
+    if ("geolocation" in navigator) {
+      setLocationStatus("requesting");
+      navigator.geolocation.getCurrentPosition(
+        () => setLocationStatus("granted"),
+        () => setLocationStatus("denied"),
+        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 }
+      );
+    }
+
     try {
-      // We send the employee id; server will look up their phone
       await fetch("/api/employee/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -239,6 +251,22 @@ function EmployeeLoginForm() {
               >
                 {loading ? "Sending…" : "Send verification code"}
               </Button>
+
+              {locationStatus === "requesting" && (
+                <p className="text-xs text-center text-slate-400">
+                  📍 Allow location access when prompted — needed for clock-in
+                </p>
+              )}
+              {locationStatus === "granted" && (
+                <p className="text-xs text-center text-green-600">
+                  ✓ Location access granted
+                </p>
+              )}
+              {locationStatus === "denied" && (
+                <p className="text-xs text-center text-amber-600">
+                  ⚠ Location access denied — you may not be able to clock in remotely
+                </p>
+              )}
             </div>
           ) : (
             <div className="space-y-5">
