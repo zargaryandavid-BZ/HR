@@ -1,0 +1,16 @@
+---
+description: Never push to git - only the user may push
+alwaysApply: true
+---
+
+# No Git Push
+
+**Never run `git push` or any command that pushes commits to a remote repository.**
+
+This includes:
+- `git push`
+- `git push --force` / `git push -f`
+- `git push --force-with-lease`
+- Any other variant that sends commits to a remote
+
+After committing, always stop and tell the user the branch is ready for them to push.

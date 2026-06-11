@@ -17,6 +17,7 @@ import {
 } from "./employee-notifications-panel";
 import { UserCog } from "lucide-react";
 import { EmployeeClockWidget } from "./employee-clock-widget";
+import { EmployeeTimeHistory } from "./employee-time-history";
 
 type MeData = {
   id: string;
@@ -94,6 +95,7 @@ export function EmployeeDashboard() {
         {/* Main content */}
         <main className="flex-1 min-w-0 space-y-4">
           <EmployeeClockWidget />
+          <EmployeeTimeHistory />
           <OnboardingTasksBanner />
           <EmployeeLeaveSection />
           <EmployeeBreakScheduleSection />
