@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow, format } from "date-fns";
 import {
@@ -183,17 +183,19 @@ export function EmployeeActivityTab({ employeeId }: { employeeId: string }) {
       if (!res.ok) throw new Error(json.error);
       return json.data as { items: ActivityItem[]; nextCursor: string | null };
     },
-    onSuccess: (data) => {
-      setAllItems((prev) => {
-        const existingIds = new Set(prev.map((i) => i.id));
-        const fresh = data.items.filter((i) => !existingIds.has(i.id));
-        return cursor ? [...prev, ...fresh] : data.items;
-      },
-      );
-    },
   });
 
-  const items = cursor ? allItems : (data?.items ?? []);
+  // Accumulate pages (replaces removed onSuccess callback in TanStack Query v5)
+  useEffect(() => {
+    if (!data) return;
+    setAllItems((prev) => {
+      const existingIds = new Set(prev.map((i) => i.id));
+      const fresh = data.items.filter((i) => !existingIds.has(i.id));
+      return cursor ? [...prev, ...fresh] : data.items;
+    });
+  }, [data, cursor]);
+
+  const items = allItems.length > 0 ? allItems : (data?.items ?? []);
   const nextCursor = data?.nextCursor ?? null;
 
   if (isLoading) {

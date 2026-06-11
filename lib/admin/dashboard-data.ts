@@ -89,12 +89,13 @@ export async function fetchAdminDashboardData(viewMonth: Date) {
     prisma.writeUp.count({ where: unacknowledgedWriteUpWhere }),
     prisma.documentAssignment.count({
       where: {
+        sentAt: { not: null },
         signedAt: null,
         hrApprovedAt: null,
       },
     }),
     prisma.documentAssignment.findFirst({
-      where: { signedAt: null },
+      where: { sentAt: { not: null }, signedAt: null },
       orderBy: { assignedAt: "asc" },
       select: { assignedAt: true },
     }),
@@ -146,6 +147,7 @@ export async function fetchAdminDashboardData(viewMonth: Date) {
     }),
     prisma.documentAssignment.findMany({
       where: {
+        sentAt: { not: null },
         signedAt: null,
         hrApprovedAt: null,
       },
