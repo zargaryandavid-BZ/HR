@@ -15,6 +15,7 @@ import {
   EmployeeNotificationsPanel,
   NotificationBell,
 } from "./employee-notifications-panel";
+import { UserCog } from "lucide-react";
 import { EmployeeClockWidget } from "./employee-clock-widget";
 
 type MeData = {
@@ -64,13 +65,18 @@ export function EmployeeDashboard() {
 
         <NotificationBell onClick={() => setNotifOpen(true)} />
 
-        {/* Avatar / name */}
-        <div className="flex items-center gap-2">
+        {/* Avatar / name + profile link */}
+        <button
+          onClick={() => router.push("/employee/profile")}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          title="My Profile"
+        >
           <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold uppercase">
             {displayName.slice(0, 1)}
           </div>
           <span className="text-sm font-medium text-slate-700 hidden sm:block">{displayName}</span>
-        </div>
+          <UserCog className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
+        </button>
 
         <button
           onClick={handleLogout}

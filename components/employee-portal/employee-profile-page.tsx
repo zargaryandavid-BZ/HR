@@ -1,82 +1,361 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  Pencil,
+  X,
+  Check,
+  Eye,
+  EyeOff,
+  User,
+  Mail,
+  Phone,
+  Lock,
+  Building2,
+  Briefcase,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, User, Mail, Phone, Lock, Eye, EyeOff, CheckCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type MeData = {
   id: string;
   firstName: string;
   lastName: string;
-  preferredName?: string | null;
-  phone?: string | null;
-  personalEmail?: string | null;
-  workEmail?: string | null;
-  jobTitle?: string | null;
-  employeeNumber?: string | null;
-  department?: { name: string } | null;
+  preferredName: string | null;
+  phone: string | null;
+  personalEmail: string | null;
+  workEmail: string | null;
+  jobTitle: string | null;
+  department: { name: string } | null;
+  position: { name: string } | null;
 };
 
-function InputField({
+function getInitials(first: string, last: string) {
+  return `${first[0] ?? ""}${last[0] ?? ""}`.toUpperCase();
+}
+
+// ── Contact Info Card ─────────────────────────────────────────────────────────
+
+function ContactCard({ me, onSaved }: { me: MeData; onSaved: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [preferredName, setPreferredName] = useState(me.preferredName ?? "");
+  const [phone, setPhone] = useState(me.phone ?? "");
+  const [personalEmail, setPersonalEmail] = useState(me.personalEmail ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  function openEdit() {
+    setPreferredName(me.preferredName ?? "");
+    setPhone(me.phone ?? "");
+    setPersonalEmail(me.personalEmail ?? "");
+    setError(null);
+    setSuccess(false);
+    setEditing(true);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/employee/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preferredName, phone, personalEmail }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.message ?? "Failed to save");
+        return;
+      }
+      setSuccess(true);
+      setEditing(false);
+      onSaved();
+    } catch {
+      setError("Network error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardTitle className="text-base flex items-center gap-2">
+          <User className="h-4 w-4 text-muted-foreground" />
+          Contact Information
+        </CardTitle>
+        {!editing && (
+          <Button size="sm" variant="outline" onClick={openEdit}>
+            <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {success && (
+          <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-2.5 text-sm text-green-800">
+            Profile updated successfully.
+          </div>
+        )}
+
+        {editing ? (
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Preferred Name</Label>
+              <Input
+                value={preferredName}
+                onChange={(e) => setPreferredName(e.target.value)}
+                placeholder={`${me.firstName}`}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Phone</Label>
+              <Input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+1 (555) 000-0000"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Personal Email</Label>
+              <Input
+                type="email"
+                value={personalEmail}
+                onChange={(e) => setPersonalEmail(e.target.value)}
+                placeholder="you@example.com"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-muted-foreground">Work Email (read-only)</Label>
+              <Input value={me.workEmail ?? ""} disabled className="bg-muted/50" />
+            </div>
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
+
+            <div className="flex gap-2">
+              <Button onClick={handleSave} disabled={saving} size="sm">
+                <Check className="h-3.5 w-3.5 mr-1.5" />
+                {saving ? "Saving…" : "Save"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEditing(false);
+                  setError(null);
+                }}
+              >
+                <X className="h-3.5 w-3.5 mr-1.5" /> Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <InfoRow
+              icon={<User className="h-4 w-4" />}
+              label="Preferred Name"
+              value={me.preferredName || `${me.firstName} (not set)`}
+            />
+            <InfoRow
+              icon={<Phone className="h-4 w-4" />}
+              label="Phone"
+              value={me.phone ?? "Not set"}
+            />
+            <InfoRow
+              icon={<Mail className="h-4 w-4" />}
+              label="Personal Email"
+              value={me.personalEmail ?? "Not set"}
+            />
+            <InfoRow
+              icon={<Mail className="h-4 w-4 opacity-50" />}
+              label="Work Email"
+              value={me.workEmail ?? "Not set"}
+              muted
+            />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Change Password Card ──────────────────────────────────────────────────────
+
+function ChangePasswordCard() {
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showOld, setShowOld] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(false);
+
+    if (newPassword.length < 6) {
+      setError("New password must be at least 6 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("New passwords do not match");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/employee/me/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldPassword, newPassword }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json.message ?? "Failed to update password");
+        return;
+      }
+      setSuccess(true);
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch {
+      setError("Network error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-4">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Lock className="h-4 w-4 text-muted-foreground" />
+          Change Password
+        </CardTitle>
+        <p className="text-xs text-muted-foreground mt-1">
+          Leave &quot;Current Password&quot; blank if you haven&apos;t set one yet.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <PasswordField
+            id="old-password"
+            label="Current Password"
+            value={oldPassword}
+            onChange={setOldPassword}
+            show={showOld}
+            onToggleShow={() => setShowOld((v) => !v)}
+            placeholder="Leave blank if no password set"
+          />
+          <PasswordField
+            id="new-password"
+            label="New Password"
+            value={newPassword}
+            onChange={setNewPassword}
+            show={showNew}
+            onToggleShow={() => setShowNew((v) => !v)}
+            placeholder="Min. 6 characters"
+          />
+          <PasswordField
+            id="confirm-password"
+            label="Confirm New Password"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            show={showConfirm}
+            onToggleShow={() => setShowConfirm((v) => !v)}
+            placeholder="Repeat new password"
+          />
+
+          {error && (
+            <div className="rounded-lg bg-destructive/10 border border-destructive/30 px-4 py-2.5 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-2.5 text-sm text-green-800">
+              Password updated successfully.
+            </div>
+          )}
+
+          <Button type="submit" disabled={saving} className="w-full sm:w-auto">
+            {saving ? "Updating…" : "Update Password"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
+function InfoRow({
+  icon,
   label,
   value,
-  onChange,
-  type = "text",
-  placeholder,
-  disabled,
+  muted,
 }: {
+  icon: React.ReactNode;
   label: string;
   value: string;
-  onChange: (v: string) => void;
-  type?: string;
-  placeholder?: string;
-  disabled?: boolean;
+  muted?: boolean;
 }) {
   return (
-    <div className="space-y-1.5">
-      <label className="text-xs font-medium text-slate-600">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        disabled={disabled}
-        className="w-full rounded-lg border border-input bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-colors disabled:bg-slate-50 disabled:text-slate-400"
-      />
+    <div className="flex items-start gap-3">
+      <span className="mt-0.5 text-muted-foreground shrink-0">{icon}</span>
+      <div className="min-w-0">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className={`text-sm font-medium truncate ${muted ? "text-muted-foreground" : ""}`}>
+          {value}
+        </p>
+      </div>
     </div>
   );
 }
 
 function PasswordField({
+  id,
   label,
   value,
   onChange,
+  show,
+  onToggleShow,
   placeholder,
 }: {
+  id: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
+  show: boolean;
+  onToggleShow: () => void;
   placeholder?: string;
 }) {
-  const [show, setShow] = useState(false);
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium text-slate-600">{label}</label>
+      <Label htmlFor={id}>{label}</Label>
       <div className="relative">
-        <input
+        <Input
+          id={id}
           type={show ? "text" : "password"}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full rounded-lg border border-input bg-white px-3 py-2 pr-10 text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-colors"
+          className="pr-10"
         />
         <button
           type="button"
-          onClick={() => setShow((s) => !s)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          onClick={onToggleShow}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+          tabIndex={-1}
         >
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
@@ -85,24 +364,11 @@ function PasswordField({
   );
 }
 
+// ── Main Page Component ───────────────────────────────────────────────────────
+
 export function EmployeeProfilePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-
-  // ── Profile state ────────────────────────────────────────────────────
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [preferredName, setPreferredName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [personalEmail, setPersonalEmail] = useState("");
-  const [profileLoading, setProfileLoading] = useState(false);
-  const [profileMsg, setProfileMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  // ── Password state ───────────────────────────────────────────────────
-  const [oldPassword, setOldPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [pwLoading, setPwLoading] = useState(false);
-  const [pwMsg, setPwMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const { data: me, isLoading } = useQuery<MeData>({
     queryKey: ["employee-me"],
@@ -113,208 +379,70 @@ export function EmployeeProfilePage() {
     },
   });
 
-  function startEditing() {
-    setPreferredName(me?.preferredName ?? "");
-    setPhone(me?.phone ?? "");
-    setPersonalEmail(me?.personalEmail ?? "");
-    setEditingProfile(true);
-    setProfileMsg(null);
+  function refreshMe() {
+    queryClient.invalidateQueries({ queryKey: ["employee-me"] });
   }
 
-  function cancelEditing() {
-    setEditingProfile(false);
-    setProfileMsg(null);
-  }
-
-  async function saveProfile() {
-    setProfileLoading(true);
-    setProfileMsg(null);
-    try {
-      const res = await fetch("/api/employee/me", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ preferredName: preferredName || null, phone: phone || null, personalEmail: personalEmail || null }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setProfileMsg({ type: "error", text: json.message ?? "Failed to save" });
-      } else {
-        setProfileMsg({ type: "success", text: "Profile updated" });
-        setEditingProfile(false);
-        queryClient.invalidateQueries({ queryKey: ["employee-me"] });
-      }
-    } catch {
-      setProfileMsg({ type: "error", text: "Network error" });
-    } finally {
-      setProfileLoading(false);
-    }
-  }
-
-  async function changePassword(e: React.FormEvent) {
-    e.preventDefault();
-    setPwMsg(null);
-    if (newPassword.length < 6) {
-      setPwMsg({ type: "error", text: "New password must be at least 6 characters" });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPwMsg({ type: "error", text: "New passwords do not match" });
-      return;
-    }
-    setPwLoading(true);
-    try {
-      const res = await fetch("/api/employee/me/change-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ oldPassword, newPassword }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setPwMsg({ type: "error", text: json.message ?? "Failed to change password" });
-      } else {
-        setPwMsg({ type: "success", text: "Password changed successfully" });
-        setOldPassword("");
-        setNewPassword("");
-        setConfirmPassword("");
-      }
-    } catch {
-      setPwMsg({ type: "error", text: "Network error" });
-    } finally {
-      setPwLoading(false);
-    }
-  }
-
-  if (isLoading) {
+  if (isLoading || !me) {
     return (
-      <div className="flex h-dvh items-center justify-center">
-        <div className="h-6 w-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-muted/30 flex items-center justify-center">
+        <p className="text-muted-foreground text-sm">Loading…</p>
       </div>
     );
   }
 
-  const fullName = me ? `${me.preferredName ?? me.firstName} ${me.lastName}` : "";
-  const initials = me ? `${me.firstName[0]}${me.lastName[0]}`.toUpperCase() : "?";
+  const displayName = me.preferredName
+    ? `${me.preferredName} ${me.lastName}`
+    : `${me.firstName} ${me.lastName}`;
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-slate-50">
-      {/* Top bar */}
-      <header className="z-40 shrink-0 border-b bg-white h-14 flex items-center px-4 gap-3 shadow-sm">
-        <button
-          onClick={() => router.push("/employee/dashboard")}
-          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Dashboard
-        </button>
-        <div className="flex-1" />
-        <span className="text-sm font-semibold text-slate-700">My Profile</span>
-        <div className="flex-1" />
-      </header>
-
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="max-w-lg mx-auto space-y-4">
-
-          {/* Avatar + name card */}
-          <Card>
-            <CardContent className="py-5 flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xl font-bold shrink-0">
-                {initials}
-              </div>
-              <div>
-                <p className="text-base font-semibold text-slate-800">{fullName}</p>
-                <p className="text-sm text-slate-500">{me?.jobTitle ?? "—"}</p>
-                {me?.department && (
-                  <p className="text-xs text-slate-400">{typeof me.department === "object" ? me.department.name : me.department}</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Contact info */}
-          <Card>
-            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <User className="h-4 w-4 text-primary" /> Contact Information
-              </CardTitle>
-              {!editingProfile && (
-                <button onClick={startEditing} className="text-xs text-primary hover:underline">
-                  Edit
-                </button>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {editingProfile ? (
-                <>
-                  <InputField label="Preferred Name" value={preferredName} onChange={setPreferredName} placeholder={`${me?.firstName}`} />
-                  <InputField label="Phone" value={phone} onChange={setPhone} type="tel" placeholder="+1 (555) 000-0000" />
-                  <InputField label="Personal Email" value={personalEmail} onChange={setPersonalEmail} type="email" placeholder="you@example.com" />
-                  {me?.workEmail && (
-                    <InputField label="Work Email" value={me.workEmail} onChange={() => {}} disabled placeholder="" />
-                  )}
-                  {profileMsg && (
-                    <p className={`text-xs ${profileMsg.type === "success" ? "text-green-600" : "text-red-600"}`}>
-                      {profileMsg.text}
-                    </p>
-                  )}
-                  <div className="flex gap-2 pt-1">
-                    <Button size="sm" onClick={saveProfile} disabled={profileLoading} className="flex-1">
-                      {profileLoading ? "Saving…" : "Save"}
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={cancelEditing} disabled={profileLoading} className="flex-1">
-                      Cancel
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <div className="space-y-2.5">
-                  <div className="flex items-center gap-3">
-                    <Phone className="h-4 w-4 text-slate-400 shrink-0" />
-                    <span className="text-sm text-slate-700">{me?.phone ?? <span className="text-slate-400 italic">No phone on file</span>}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Mail className="h-4 w-4 text-slate-400 shrink-0" />
-                    <div>
-                      <p className="text-sm text-slate-700">{me?.personalEmail ?? <span className="text-slate-400 italic">No personal email</span>}</p>
-                      {me?.workEmail && <p className="text-xs text-slate-400">{me.workEmail} (work)</p>}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Change password */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Lock className="h-4 w-4 text-primary" /> Change Password
-              </CardTitle>
-              <p className="text-xs text-slate-400">Leave blank old password if you haven&apos;t set one yet</p>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={changePassword} className="space-y-3">
-                <PasswordField label="Current Password" value={oldPassword} onChange={setOldPassword} placeholder="Enter current password" />
-                <PasswordField label="New Password" value={newPassword} onChange={setNewPassword} placeholder="Min. 6 characters" />
-                <PasswordField label="Confirm New Password" value={confirmPassword} onChange={setConfirmPassword} placeholder="Repeat new password" />
-
-                {pwMsg && (
-                  <div className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 ${
-                    pwMsg.type === "success" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-                  }`}>
-                    {pwMsg.type === "success" && <CheckCircle className="h-3.5 w-3.5 shrink-0" />}
-                    {pwMsg.text}
-                  </div>
-                )}
-
-                <Button type="submit" size="sm" className="w-full" disabled={pwLoading}>
-                  {pwLoading ? "Updating…" : "Update Password"}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
+    <div className="min-h-screen bg-muted/30">
+      {/* Header bar */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/employee/dashboard")}
+            className="gap-1.5"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Dashboard
+          </Button>
+          <span className="text-sm font-medium text-muted-foreground">/ My Profile</span>
         </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+        {/* Avatar + identity block */}
+        <div className="flex items-center gap-5">
+          <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <span className="text-2xl font-bold text-primary">
+              {getInitials(me.firstName, me.lastName)}
+            </span>
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold">{displayName}</h1>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm text-muted-foreground">
+              {me.jobTitle && (
+                <span className="flex items-center gap-1">
+                  <Briefcase className="h-3.5 w-3.5" />
+                  {me.jobTitle}
+                </span>
+              )}
+              {me.department && (
+                <span className="flex items-center gap-1">
+                  <Building2 className="h-3.5 w-3.5" />
+                  {me.department.name}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Cards */}
+        <ContactCard me={me} onSaved={refreshMe} />
+        <ChangePasswordCard />
       </div>
     </div>
   );
