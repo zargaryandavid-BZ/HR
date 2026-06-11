@@ -34,8 +34,10 @@ export default function AdminProfilePage() {
     },
   });
 
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [pwLoading, setPwLoading] = useState(false);
@@ -47,23 +49,44 @@ export default function AdminProfilePage() {
     setPwError(null);
     setPwSuccess(false);
 
+    if (!currentPassword) {
+      setPwError("Please enter your current password.");
+      return;
+    }
     if (newPassword.length < 8) {
-      setPwError("Password must be at least 8 characters.");
+      setPwError("New password must be at least 8 characters.");
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPwError("Passwords do not match.");
+      setPwError("New passwords do not match.");
+      return;
+    }
+    if (currentPassword === newPassword) {
+      setPwError("New password must be different from the current password.");
       return;
     }
 
     setPwLoading(true);
     try {
       const supabase = createClient();
+
+      // Verify current password first
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: me?.email ?? "",
+        password: currentPassword,
+      });
+      if (signInError) {
+        setPwError("Current password is incorrect.");
+        return;
+      }
+
+      // Update to new password
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) {
         setPwError(error.message);
       } else {
         setPwSuccess(true);
+        setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
       }
@@ -128,6 +151,27 @@ export default function AdminProfilePage() {
           <CardContent>
             <form onSubmit={handleChangePassword} className="space-y-4">
               <div className="space-y-1.5">
+                <Label>Current password</Label>
+                <div className="relative">
+                  <Input
+                    type={showCurrent ? "text" : "password"}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Your current password"
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrent((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                  >
+                    {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
                 <Label>New password</Label>
                 <div className="relative">
                   <Input
@@ -176,7 +220,7 @@ export default function AdminProfilePage() {
                 <p className="text-sm text-green-600 font-medium">✓ Password updated successfully</p>
               )}
 
-              <Button type="submit" disabled={pwLoading || !newPassword || !confirmPassword}>
+              <Button type="submit" disabled={pwLoading || !currentPassword || !newPassword || !confirmPassword}>
                 {pwLoading ? "Updating…" : "Update password"}
               </Button>
             </form>
