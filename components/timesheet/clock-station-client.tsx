@@ -124,7 +124,7 @@ export function ClockStationClient() {
     if (val.length !== 6 || loading) return;
     setLoading(true);
 
-    setLoadingMsg("Looking up…");
+    // setLoadingMsg("Looking up…");
     try {
       const res = await fetch("/api/kiosk/clock", {
         method: "POST",

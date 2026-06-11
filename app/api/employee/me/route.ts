@@ -17,7 +17,7 @@ export async function GET() {
       },
     });
 
-    if (!employee) return apiError("Not found", "Employee not found", 404);
+    if (!employee) return apiError("Unauthorized", "Employee session invalid", 401);
 
     return Response.json(
       apiSuccess({

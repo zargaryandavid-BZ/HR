@@ -32,6 +32,27 @@ export async function middleware(request: NextRequest) {
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
     }
+
+    // Validate the employee still exists (guards against stale sessions from deleted records)
+    if (!pathname.startsWith("/api/")) {
+      try {
+        const validateUrl = new URL("/api/employee/auth/validate-session", request.url);
+        const res = await fetch(validateUrl.toString(), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ employeeId: session.employeeId }),
+        });
+        if (!res.ok) {
+          const loginUrl = new URL("/employee/login", request.url);
+          const response = NextResponse.redirect(loginUrl);
+          response.cookies.delete(EMPLOYEE_COOKIE);
+          return response;
+        }
+      } catch {
+        // If validation fails, allow through — don't break the app
+      }
+    }
+
     return NextResponse.next();
   }
 
@@ -105,6 +126,7 @@ async function handleImpersonation(request: NextRequest, token: string): Promise
 }
 
 export const config = {
+  // api/employee/auth (including validate-session) is excluded to prevent loops
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|api/kiosk|kiosk|api/employee/auth|api/docs|api/admin/employee/impersonate/validate).*)",
   ],
