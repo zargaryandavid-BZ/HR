@@ -199,6 +199,10 @@ export function AdminLiveBoard() {
     refreshEntries();
   }
 
+  const clockedIn = live.filter((e) => e.isClockedIn && !e.isOnBreak).length;
+  const onBreak = live.filter((e) => e.isOnBreak).length;
+  const absent = live.filter((e) => !e.isClockedIn).length;
+
   return (
     <div>
       <PageHeader
@@ -206,203 +210,200 @@ export function AdminLiveBoard() {
         description="Live presence board and time entry management"
       />
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-base">Who&apos;s In Right Now</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4 mb-4">
-            <div className="flex items-center gap-1.5 text-sm text-green-700 font-medium">
-              <Users className="h-4 w-4 text-green-600" />
-              <span>{live.filter((e) => e.isClockedIn && !e.isOnBreak).length} clocked in</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-sm text-amber-700 font-medium">
-              <Coffee className="h-4 w-4 text-amber-600" />
-              <span>{live.filter((e) => e.isOnBreak).length} on break</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-sm text-red-700 font-medium">
-              <UserX className="h-4 w-4 text-red-500" />
-              <span>{live.filter((e) => !e.isClockedIn).length} absent</span>
-            </div>
-          </div>
-          <DataTable>
-            <thead>
-              <tr className="border-b bg-muted/50 text-left">
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Employee</th>
-                <th className="px-4 py-2 font-medium">Department</th>
-                <th className="px-4 py-2 font-medium">Position</th>
-                <th className="px-4 py-2 font-medium">Elapsed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {live.map((emp) => (
-                <tr
-                  key={emp.id}
-                  className="border-b hover:bg-muted/30 cursor-pointer"
-                  onClick={() => router.push(`/admin/employees/${emp.id}`)}
-                >
-                  <td className="px-4 py-2">
-                    <StatusDot isClockedIn={emp.isClockedIn} isOnBreak={emp.isOnBreak} />
-                  </td>
-                  <td className="px-4 py-2">{emp.name}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{emp.department ?? "—"}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{emp.position ?? "—"}</td>
-                  <td className="px-4 py-2 font-mono text-sm">
-                    {emp.isClockedIn ? formatElapsed(emp.elapsed) : "—"}
-                  </td>
-                </tr>
-              ))}
-              {live.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                    No active employees
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </DataTable>
-        </CardContent>
-      </Card>
+      {/* Two-column layout: main entries table + right live sidebar */}
+      <div className="flex gap-6 items-start">
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base">Time Entries</CardTitle>
-          <div className="flex items-center gap-2">
-            {mergeResult && (
-              <span className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1">
-                {mergeResult}
-              </span>
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={mergeDuplicates}
-              disabled={mergeLoading}
-              title="Merge same-day duplicate entries per employee into one record"
-            >
-              {mergeLoading ? "Merging…" : "Fix Duplicates"}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={exportCsv}
-              title="Download time entries as CSV for payroll"
-              className="text-green-700 border-green-300 hover:bg-green-50"
-            >
-              <Download className="h-4 w-4 mr-1" /> Export CSV
-            </Button>
-            <Button size="sm" onClick={() => setAddOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Add Entry
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            {(["today", "week", "month", "custom"] as RangeFilter[]).map((r) => (
-              <Button
-                key={r}
-                size="sm"
-                variant={range === r ? "default" : "outline"}
-                onClick={() => setRange(r)}
-              >
-                {r === "today" ? "Today" : r === "week" ? "Week" : r === "month" ? "Month" : "Custom"}
-              </Button>
-            ))}
-            {range === "custom" && (
+        {/* ── Left / Main: Time Entries ───────────────────────────────── */}
+        <div className="flex-1 min-w-0">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-base">Time Entries</CardTitle>
               <div className="flex items-center gap-2">
-                <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
-                <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+                {mergeResult && (
+                  <span className="text-xs text-green-700 bg-green-50 border border-green-200 rounded px-2 py-1">
+                    {mergeResult}
+                  </span>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={mergeDuplicates}
+                  disabled={mergeLoading}
+                  title="Merge same-day duplicate entries per employee into one record"
+                >
+                  {mergeLoading ? "Merging…" : "Fix Duplicates"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={exportCsv}
+                  title="Download time entries as CSV for payroll"
+                  className="text-green-700 border-green-300 hover:bg-green-50"
+                >
+                  <Download className="h-4 w-4 mr-1" /> Export CSV
+                </Button>
+                <Button size="sm" onClick={() => setAddOpen(true)}>
+                  <Plus className="h-4 w-4 mr-1" /> Add Entry
+                </Button>
               </div>
-            )}
-          </div>
-
-          <DataTable>
-            <thead>
-              <tr className="border-b bg-muted/50 text-left">
-                <th className="px-4 py-2 font-medium">Employee</th>
-                <th className="px-4 py-2 font-medium">Clock In</th>
-                <th className="px-4 py-2 font-medium">Clock Out</th>
-                <th className="px-4 py-2 font-medium">Hours</th>
-                <th className="px-4 py-2 font-medium">Breaks</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entriesLoading && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
-                    Loading…
-                  </td>
-                </tr>
-              )}
-              {!entriesLoading &&
-                entries.map((entry) => (
-                  <tr key={entry.id} className="border-b">
-                    <td className="px-4 py-2">
-                      {entry.employee.firstName} {entry.employee.lastName}
-                    </td>
-                    <td className="px-4 py-2 text-sm">
-                      {format(new Date(entry.clockIn), "MMM d, h:mm a")}
-                    </td>
-                    <td className="px-4 py-2 text-sm">
-                      {entry.clockOut
-                        ? format(new Date(entry.clockOut), "MMM d, h:mm a")
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-2">
-                      {entry.hoursWorked != null ? entry.hoursWorked.toFixed(2) : "—"}
-                    </td>
-                    <td className="px-4 py-2 text-sm text-muted-foreground">
-                      {entry.breaks?.length ?? 0}
-                    </td>
-                    <td className="px-4 py-2">
-                      <Badge variant={statusBadgeVariant(entry.status)}>{entry.status}</Badge>
-                    </td>
-                    <td className="px-4 py-2">
-                      <div className="flex flex-wrap gap-1">
-                        {entry.status === "COMPLETED" && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-xs h-7"
-                            onClick={() => approveEntry(entry.id)}
-                          >
-                            Approve
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs h-7"
-                          onClick={() => setEditEntry(entry)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs h-7"
-                          onClick={() => flagEntry(entry.id)}
-                        >
-                          Flag
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                {(["today", "week", "month", "custom"] as RangeFilter[]).map((r) => (
+                  <Button
+                    key={r}
+                    size="sm"
+                    variant={range === r ? "default" : "outline"}
+                    onClick={() => setRange(r)}
+                  >
+                    {r === "today" ? "Today" : r === "week" ? "Week" : r === "month" ? "Month" : "Custom"}
+                  </Button>
                 ))}
-              {!entriesLoading && entries.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
-                    No entries for this period
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </DataTable>
-        </CardContent>
-      </Card>
+                {range === "custom" && (
+                  <div className="flex items-center gap-2">
+                    <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
+                    <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
+                  </div>
+                )}
+              </div>
+
+              <DataTable>
+                <thead>
+                  <tr className="border-b bg-muted/50 text-left">
+                    <th className="px-4 py-2 font-medium">Employee</th>
+                    <th className="px-4 py-2 font-medium">Clock In</th>
+                    <th className="px-4 py-2 font-medium">Clock Out</th>
+                    <th className="px-4 py-2 font-medium">Hours</th>
+                    <th className="px-4 py-2 font-medium">Breaks</th>
+                    <th className="px-4 py-2 font-medium">Status</th>
+                    <th className="px-4 py-2 font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entriesLoading && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                        Loading…
+                      </td>
+                    </tr>
+                  )}
+                  {!entriesLoading &&
+                    entries.map((entry) => (
+                      <tr key={entry.id} className="border-b">
+                        <td className="px-4 py-2">
+                          {entry.employee.firstName} {entry.employee.lastName}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {format(new Date(entry.clockIn), "MMM d, h:mm a")}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {entry.clockOut
+                            ? format(new Date(entry.clockOut), "MMM d, h:mm a")
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-2">
+                          {entry.hoursWorked != null ? entry.hoursWorked.toFixed(2) : "—"}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-muted-foreground">
+                          {entry.breaks?.length ?? 0}
+                        </td>
+                        <td className="px-4 py-2">
+                          <Badge variant={statusBadgeVariant(entry.status)}>{entry.status}</Badge>
+                        </td>
+                        <td className="px-4 py-2">
+                          <div className="flex flex-wrap gap-1">
+                            {entry.status === "COMPLETED" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7"
+                                onClick={() => approveEntry(entry.id)}
+                              >
+                                Approve
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-7"
+                              onClick={() => setEditEntry(entry)}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-7"
+                              onClick={() => flagEntry(entry.id)}
+                            >
+                              Flag
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  {!entriesLoading && entries.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                        No entries for this period
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </DataTable>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Right Sidebar: Who's In Right Now ───────────────────────── */}
+        <div className="w-72 shrink-0 sticky top-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold">Who&apos;s In Right Now</CardTitle>
+              {/* Status summary chips */}
+              <div className="flex flex-wrap gap-2 pt-1">
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-xs font-medium text-green-700">
+                  <Users className="h-3 w-3" /> {clockedIn} in
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs font-medium text-amber-700">
+                  <Coffee className="h-3 w-3" /> {onBreak} break
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-xs font-medium text-red-700">
+                  <UserX className="h-3 w-3" /> {absent} absent
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y max-h-[70vh] overflow-y-auto">
+                {live.length === 0 && (
+                  <p className="px-4 py-6 text-center text-xs text-muted-foreground">No active employees</p>
+                )}
+                {live.map((emp) => (
+                  <button
+                    key={emp.id}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/40 transition-colors"
+                    onClick={() => router.push(`/admin/employees/${emp.id}`)}
+                  >
+                    <StatusDot isClockedIn={emp.isClockedIn} isOnBreak={emp.isOnBreak} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{emp.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {emp.department ?? emp.position ?? "—"}
+                      </p>
+                    </div>
+                    {emp.isClockedIn && (
+                      <span className="text-xs font-mono text-muted-foreground shrink-0">
+                        {formatElapsed(emp.elapsed)}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+      </div>
 
       {editEntry && (
         <TimeEntryEditModal
