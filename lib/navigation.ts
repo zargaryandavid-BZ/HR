@@ -136,6 +136,12 @@ export const NAV_ITEMS: NavItem[] = [
     roles: ["HR_ADMIN", "SUPER_ADMIN"],
   },
   {
+    label: "Timesheet",
+    href: "/admin/timesheet",
+    icon: Clock,
+    roles: ["HR_ADMIN", "SUPER_ADMIN"],
+  },
+  {
     label: "Employees",
     href: "/admin/employees",
     icon: Users,
@@ -165,12 +171,6 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Offboarding",
     href: "/admin/offboarding/automation",
     icon: UserMinus,
-    roles: ["HR_ADMIN", "SUPER_ADMIN"],
-  },
-  {
-    label: "Timesheet",
-    href: "/admin/timesheet",
-    icon: Clock,
     roles: ["HR_ADMIN", "SUPER_ADMIN"],
   },
   {
