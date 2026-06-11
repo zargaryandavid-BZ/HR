@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +24,15 @@ function formatPhone(raw: string): string {
   return result;
 }
 
-/** Employee portal OTP login page */
 export default function EmployeeLoginPage() {
+  return (
+    <Suspense>
+      <EmployeeLoginForm />
+    </Suspense>
+  );
+}
+
+function EmployeeLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") ?? "/employee/dashboard";
