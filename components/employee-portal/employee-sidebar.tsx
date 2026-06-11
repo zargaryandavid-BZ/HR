@@ -120,7 +120,7 @@ function SectionLabel({ label, first = false }: { label: string; first?: boolean
 export function EmployeeSidebar() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [personalVisible, setPersonalVisible] = useState(false);
+  const [personalVisible, setPersonalVisible] = useState(true);
 
   const { data: me, isLoading: meLoading } = useQuery<MeData>({
     queryKey: ["employee-me"],
