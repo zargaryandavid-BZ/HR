@@ -48,6 +48,7 @@ export function ClockStationClient() {
   const [liveElapsed, setLiveElapsed] = useState(0);
   const [liveBreakElapsed, setLiveBreakElapsed] = useState(0);
   const [countdown, setCountdown] = useState(0);
+  const [loadingMsg, setLoadingMsg] = useState("Looking up…");
   const hiddenInputRef = useRef<HTMLInputElement>(null);
 
   // ── Live shift/break timers ──────────────────────────────────────────
@@ -123,11 +124,32 @@ export function ClockStationClient() {
     const val = inputValue.trim();
     if (val.length !== 6 || loading) return;
     setLoading(true);
+
+    // ── Collect GPS on mobile devices (server validates, client just reports) ──
+    let coords: { lat: number; lng: number; accuracy?: number } | undefined;
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile && "geolocation" in navigator) {
+      setLoadingMsg("Getting your location…");
+      coords = await new Promise<typeof coords>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) =>
+            resolve({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              accuracy: pos.coords.accuracy,
+            }),
+          () => resolve(undefined), // denied or failed — server will fall back to IP check
+          { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 }
+        );
+      });
+    }
+
+    setLoadingMsg("Looking up…");
     try {
       const res = await fetch("/api/kiosk/clock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeNumber: val }),
+        body: JSON.stringify({ employeeNumber: val, coords }),
       });
       const json = await res.json();
       setLoading(false);
@@ -476,7 +498,7 @@ export function ClockStationClient() {
             letterSpacing: ".03em",
           }}
         >
-          {loading ? "Looking up…" : "Continue →"}
+          {loading ? loadingMsg : "Continue →"}
         </button>
       </div>
     </div>

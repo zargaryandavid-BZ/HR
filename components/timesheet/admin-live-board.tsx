@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Plus, Users, UserX, Coffee } from "lucide-react";
+import { Plus, Users, UserX, Coffee, Download } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -127,6 +127,15 @@ export function AdminLiveBoard() {
   function refreshEntries() {
     queryClient.invalidateQueries({ queryKey: ["admin-time-entries"] });
     queryClient.invalidateQueries({ queryKey: ["admin-clock-live"] });
+  }
+
+  function exportCsv() {
+    const params = new URLSearchParams({ range });
+    if (range === "custom" && customFrom && customTo) {
+      params.set("from", customFrom);
+      params.set("to", customTo);
+    }
+    window.location.href = `/api/admin/time-entries/export?${params.toString()}`;
   }
 
   async function mergeDuplicates() {
@@ -273,6 +282,15 @@ export function AdminLiveBoard() {
               title="Merge same-day duplicate entries per employee into one record"
             >
               {mergeLoading ? "Merging…" : "Fix Duplicates"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={exportCsv}
+              title="Download time entries as CSV for payroll"
+              className="text-green-700 border-green-300 hover:bg-green-50"
+            >
+              <Download className="h-4 w-4 mr-1" /> Export CSV
             </Button>
             <Button size="sm" onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4 mr-1" /> Add Entry

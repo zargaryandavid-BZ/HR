@@ -1,4 +1,26 @@
 {
+  "/icon.png/route": "app/icon.png/route.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/api/notifications/route": "app/api/notifications/route.js",
+  "/api/employees/count/route": "app/api/employees/count/route.js",
+  "/api/leave/stats/route": "app/api/leave/stats/route.js",
+  "/api/admin/clock/live/route": "app/api/admin/clock/live/route.js",
+  "/api/admin/time-entries/route": "app/api/admin/time-entries/route.js",
+  "/api/employee/me/route": "app/api/employee/me/route.js",
+  "/api/employee/qr/route": "app/api/employee/qr/route.js",
+  "/api/employee/notifications/route": "app/api/employee/notifications/route.js",
+  "/api/employee/onboarding-tasks/route": "app/api/employee/onboarding-tasks/route.js",
+  "/api/employee/documents/route": "app/api/employee/documents/route.js",
+  "/api/clock/status/route": "app/api/clock/status/route.js",
+  "/api/employee/leave/route": "app/api/employee/leave/route.js",
+  "/api/employee/leave-requests/route": "app/api/employee/leave-requests/route.js",
+  "/api/employee/break-schedule/route": "app/api/employee/break-schedule/route.js",
+  "/api/employee/write-ups/route": "app/api/employee/write-ups/route.js",
+  "/api/employee/hr-documents/route": "app/api/employee/hr-documents/route.js",
+  "/api/employee/offboarding-documents/route": "app/api/employee/offboarding-documents/route.js",
+  "/api/employee/important-dates/route": "app/api/employee/important-dates/route.js",
+  "/(dashboard)/admin/dashboard/page": "app/(dashboard)/admin/dashboard/page.js",
+  "/(dashboard)/admin/clock/scanner/page": "app/(dashboard)/admin/clock/scanner/page.js",
   "/clock-station/page": "app/clock-station/page.js",
-  "/(dashboard)/admin/dashboard/page": "app/(dashboard)/admin/dashboard/page.js"
+  "/(dashboard)/admin/timesheet/page": "app/(dashboard)/admin/timesheet/page.js"
 }

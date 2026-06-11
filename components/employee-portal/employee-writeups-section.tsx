@@ -110,6 +110,7 @@ export function EmployeeWriteUpsSection() {
     <>
       <EmployeeDashboardSection
         title={`Write-Ups (${totalCount})`}
+        defaultOpen={false}
         actions={
           <>
             {unacknowledgedCount > 0 && (

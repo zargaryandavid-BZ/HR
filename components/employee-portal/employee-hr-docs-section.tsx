@@ -40,7 +40,7 @@ export function EmployeeHrDocsSection({ employeeId }: { employeeId?: string }) {
   if (isLoading) return <Skeleton className="h-28 w-full" />;
 
   return (
-    <EmployeeDashboardSection title="HR Documents">
+    <EmployeeDashboardSection title="HR Documents" defaultOpen={false}>
       {!docs?.length ? (
         <p className="text-sm text-muted-foreground text-center py-4">
           No HR documents generated yet.

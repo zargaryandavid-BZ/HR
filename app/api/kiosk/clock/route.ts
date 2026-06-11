@@ -4,10 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { apiSuccess, apiError } from "@/lib/api-response";
 import { triggerAccrualForHoursWorked } from "@/lib/time/accrual-trigger";
 import { startOfDay, endOfDay } from "date-fns";
+import { validateClockInLocation, extractClientIp } from "@/lib/geofencing";
 
 /**
  * Public kiosk clock endpoint — no admin auth required.
- * Security comes from physical access control to the kiosk device.
+ * Physical access control is the first layer; geofencing / IP validation
+ * is the second layer (configured via env vars).
  * Excluded from middleware auth via the `api/kiosk` matcher bypass.
  */
 
@@ -15,6 +17,14 @@ const schema = z.object({
   employeeNumber: z.string().min(1),
   action: z
     .enum(["CLOCK_OUT", "BREAK_START_REST", "BREAK_START_MEAL", "BREAK_END"])
+    .optional(),
+  /** GPS coordinates sent by mobile clients */
+  coords: z
+    .object({
+      lat: z.number(),
+      lng: z.number(),
+      accuracy: z.number().optional(),
+    })
     .optional(),
 });
 
@@ -26,15 +36,25 @@ export async function POST(req: NextRequest) {
       return apiError("Validation failed", "Employee ID is required");
     }
 
-    const { employeeNumber, action } = parsed.data;
+    const { employeeNumber, action, coords } = parsed.data;
+
+    // ── Geofence / network validation ─────────────────────────────────────
+    // Only enforce on clock-in actions (no action = initial clock-in, or
+    // on actions that modify a shift). This keeps the check lightweight.
+    const clientIp = extractClientIp(req.headers);
+    const locationCheck = validateClockInLocation(clientIp, coords);
+    if (!locationCheck.allowed) {
+      console.warn(`[kiosk/clock] Location check failed — ip=${clientIp} method=${locationCheck.method} reason="${locationCheck.reason}"`);
+      return apiError("Location restricted", locationCheck.reason ?? "Clock-in not allowed from this location.", 403);
+    }
 
     // Bug fix: check isActive so deactivated employees cannot use kiosk
     const emp = await prisma.employee.findUnique({
       where: { employeeNumber },
-      select: { id: true, firstName: true, lastName: true, isActive: true },
+      select: { id: true, firstName: true, lastName: true, status: true },
     });
     if (!emp) return apiError("Not found", "Employee ID not recognised", 404);
-    if (!emp.isActive) return apiError("Inactive", "This employee account is no longer active", 403);
+    if (emp.status !== "ACTIVE") return apiError("Inactive", "This employee account is no longer active", 403);
 
     const employeeId = emp.id;
     const employee = { firstName: emp.firstName, lastName: emp.lastName };

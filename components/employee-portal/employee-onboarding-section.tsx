@@ -72,6 +72,7 @@ export function EmployeeOnboardingSection() {
   return (
     <EmployeeDashboardSection
       title={`Onboarding Documents (${total})`}
+      defaultOpen={false}
       contentClassName="space-y-4"
       actions={
         needsAction > 0 ? (

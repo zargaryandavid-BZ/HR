@@ -2,11 +2,24 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getEmployeeSession } from "@/lib/employee-session";
 import { apiSuccess, apiError } from "@/lib/api-response";
+import { validateClockInLocation, extractClientIp } from "@/lib/geofencing";
 
-export async function POST(_req: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
     const session = await getEmployeeSession();
     if (!session) return apiError("Unauthorized", "Not authenticated", 401);
+
+    // ── Location validation ───────────────────────────────────────────────
+    let coords: { lat: number; lng: number; accuracy?: number } | undefined;
+    try {
+      const body = await req.json();
+      coords = body?.coords;
+    } catch { /* body may be empty */ }
+    const clientIp = extractClientIp(req.headers);
+    const locationCheck = validateClockInLocation(clientIp, coords);
+    if (!locationCheck.allowed) {
+      return apiError("Location restricted", locationCheck.reason ?? "Action not allowed from this location.", 403);
+    }
 
     const entry = await prisma.timeEntry.findFirst({
       where: { employeeId: session.employeeId, clockOut: null, status: "ON_BREAK" },

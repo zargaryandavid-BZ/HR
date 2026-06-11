@@ -51,6 +51,7 @@ export function EmployeeBreakScheduleSection() {
   return (
     <EmployeeDashboardSection
       title={sectionTitle}
+      defaultOpen={false}
       actions={
         <Button
           variant="ghost"

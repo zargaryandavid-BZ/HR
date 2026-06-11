@@ -43,9 +43,35 @@ export function EmployeeClockWidget() {
   const [elapsed, setElapsed] = useState(0);
   const [breakElapsed, setBreakElapsed] = useState(0);
   const [loading, setLoading] = useState<string | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [justClockedOut, setJustClockedOut] = useState<PostClockOutData | null>(null);
   const [dismissTimer, setDismissTimer] = useState<NodeJS.Timeout | null>(null);
   const [confirm, setConfirm] = useState<PendingConfirm | null>(null);
+
+  /** Collect GPS on mobile; desktop falls back to server-side IP check. */
+  async function getCoords(): Promise<{ lat: number; lng: number; accuracy?: number } | undefined> {
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (!isMobile || !("geolocation" in navigator)) return undefined;
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }),
+        () => resolve(undefined), // denied/failed → server falls back to IP check
+        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 }
+      );
+    });
+  }
+
+  /** POST to a clock endpoint with optional GPS coords; returns parsed JSON or throws. */
+  async function clockFetch(url: string, extra?: Record<string, unknown>): Promise<{ ok: boolean; json: Record<string, unknown> }> {
+    const coords = await getCoords();
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...extra, coords }),
+    });
+    const json = await res.json();
+    return { ok: res.ok, json };
+  }
 
   const { data: status } = useQuery<ClockStatus>({
     queryKey: ["clock-status"],
@@ -74,22 +100,23 @@ export function EmployeeClockWidget() {
 
   async function clockIn() {
     setLoading("in");
-    await fetch("/api/clock/in", { method: "POST" });
+    setLocationError(null);
+    const { ok, json } = await clockFetch("/api/clock/in");
     setLoading(null);
+    if (!ok) { setLocationError((json as { message?: string }).message ?? "Clock in failed"); return; }
     setJustClockedOut(null);
     refresh();
   }
 
   async function clockOut() {
     setLoading("out");
-    const res = await fetch("/api/clock/out", { method: "POST" });
-    const json = await res.json();
+    setLocationError(null);
+    const { ok, json } = await clockFetch("/api/clock/out");
     setLoading(null);
-    if (json.data) {
-      setJustClockedOut({
-        hoursWorked: json.data.hoursWorked,
-        totalBreakMin: json.data.totalBreakMin,
-      });
+    if (!ok) { setLocationError((json as { message?: string }).message ?? "Clock out failed"); return; }
+    const data = (json as { data?: { hoursWorked: number; totalBreakMin: number } }).data;
+    if (data) {
+      setJustClockedOut({ hoursWorked: data.hoursWorked, totalBreakMin: data.totalBreakMin });
       const t = setTimeout(() => setJustClockedOut(null), 60_000);
       setDismissTimer(t);
     }
@@ -98,21 +125,30 @@ export function EmployeeClockWidget() {
 
   async function startBreak(breakType: "REST" | "MEAL") {
     setLoading(`break-${breakType}`);
-    await fetch("/api/clock/break/start", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ breakType }),
-    });
+    setLocationError(null);
+    const { ok, json } = await clockFetch("/api/clock/break/start", { breakType });
     setLoading(null);
+    if (!ok) { setLocationError((json as { message?: string }).message ?? "Action failed"); return; }
     refresh();
   }
 
   async function endBreak() {
     setLoading("break-end");
-    await fetch("/api/clock/break/end", { method: "POST" });
+    setLocationError(null);
+    const { ok, json } = await clockFetch("/api/clock/break/end");
     setLoading(null);
+    if (!ok) { setLocationError((json as { message?: string }).message ?? "Action failed"); return; }
     refresh();
   }
+
+  const locationBanner = locationError ? (
+    <Card className="mb-2 border-red-200 bg-red-50">
+      <CardContent className="py-2 px-4 flex items-center justify-between gap-3">
+        <p className="text-sm text-red-700">{locationError}</p>
+        <button onClick={() => setLocationError(null)} className="text-xs text-red-400 hover:text-red-600 shrink-0">✕</button>
+      </CardContent>
+    </Card>
+  ) : null;
 
   if (justClockedOut) {
     const h = Math.floor(justClockedOut.hoursWorked);
@@ -148,6 +184,7 @@ export function EmployeeClockWidget() {
   if (status?.isOnBreak) {
     return (
       <>
+        {locationBanner}
         {confirm && (
           <Card className="mb-2 border-orange-200 bg-orange-50">
             <CardContent className="py-3 flex items-center justify-between gap-4">
@@ -207,6 +244,7 @@ export function EmployeeClockWidget() {
   if (status?.isClockedIn) {
     return (
       <>
+        {locationBanner}
         {confirm && (
           <Card className="mb-2 border-orange-200 bg-orange-50">
             <CardContent className="py-3 flex items-center justify-between gap-4">
@@ -298,6 +336,7 @@ export function EmployeeClockWidget() {
 
   return (
     <>
+      {locationBanner}
       {confirm && (
         <Card className="mb-2 border-orange-200 bg-orange-50">
           <CardContent className="py-3 flex items-center justify-between gap-4">

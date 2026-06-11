@@ -13,6 +13,7 @@ import {
   Bell,
   UserPlus,
   UserMinus,
+  ScanLine,
 } from "lucide-react";
 import { Role } from "@prisma/client";
 
@@ -171,12 +172,6 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/admin/timesheet",
     icon: Clock,
     roles: ["HR_ADMIN", "SUPER_ADMIN"],
-  },
-  {
-    label: "Scanner",
-    href: "/admin/clock/scanner",
-    icon: ScanLine,
-    roles: ["HR_ADMIN", "SUPER_ADMIN", "MANAGER"],
   },
   {
     label: "Documents",

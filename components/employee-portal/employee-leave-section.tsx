@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { EmployeeDashboardSection } from "./employee-dashboard-section";
 import {
   Select,
   SelectContent,
@@ -360,9 +361,7 @@ export function EmployeeLeaveSection() {
 
   return (
     <>
-      <section className="bg-white rounded-xl border p-5 space-y-4">
-        <h2 className="text-base font-semibold">Leave & Sick Days</h2>
-
+      <EmployeeDashboardSection title="Leave & Sick Days" defaultOpen={false} contentClassName="space-y-4">
         <div className="flex items-start justify-between gap-5 flex-wrap">
           <div className="flex-1 min-w-[240px] space-y-4">
             {data?.balances.map((b) => {
@@ -675,7 +674,7 @@ export function EmployeeLeaveSection() {
           </div>
           )}
         </div>
-      </section>
+      </EmployeeDashboardSection>
 
       <Dialog open={requestOpen} onOpenChange={handleRequestOpenChange}>
         <DialogContent className="max-w-md">
