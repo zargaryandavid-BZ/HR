@@ -227,8 +227,8 @@ model Employee {
   lastName                String
   preferredName           String?
   personalEmail           String?
-  workEmail               String?
-  phone                   String?
+  workEmail               String?        @unique
+  phone                   String?        @unique
   departmentId            String?
   department              Department?    @relation(fields: [departmentId], references: [id])
   positionId              String?

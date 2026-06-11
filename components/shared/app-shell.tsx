@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, LogOut, Menu, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, LogOut, Menu, X } from "lucide-react";
 import { cn, getDashboardPathForRole } from "@/lib/utils";
 import { getNavItemsForRole, getNavGroupsForRole } from "@/lib/navigation";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
@@ -310,21 +310,34 @@ export function AppShell({ children }: AppShellProps) {
 
           <div className="flex items-center gap-2">
             {(role === "HR_ADMIN" || role === "SUPER_ADMIN" || role === "MANAGER") && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="hidden sm:flex items-center gap-1.5 text-xs font-medium"
-                onClick={() =>
-                  window.open(
-                    "/clock-station",
-                    "clock-station",
-                    "width=480,height=780,toolbar=no,menubar=no,scrollbars=no,resizable=yes"
-                  )
-                }
-              >
-                <span>🕐</span>
-                Clock Station
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hidden sm:flex items-center gap-1.5 text-xs font-medium"
+                  onClick={() =>
+                    window.open(
+                      "/clock-station",
+                      "clock-station",
+                      "width=480,height=780,toolbar=no,menubar=no,scrollbars=no,resizable=yes"
+                    )
+                  }
+                >
+                  <span>🕐</span>
+                  Clock Station
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hidden sm:flex items-center gap-1.5 text-xs font-medium"
+                  asChild
+                >
+                  <a href="/employee/login" target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Employee Portal
+                  </a>
+                </Button>
+              </>
             )}
             <NotificationBell />
             <DropdownMenu>

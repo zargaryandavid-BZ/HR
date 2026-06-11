@@ -4,54 +4,60 @@ import { prisma } from "@/lib/prisma";
 import { apiSuccess, apiError } from "@/lib/api-response";
 import { signEmployeeToken, buildSessionCookieHeader } from "@/lib/employee-session";
 
-const schema = z.object({
-  phone: z.string().min(7),
-  code: z.string().length(6),
-});
+const schema = z.union([
+  z.object({ employeeId: z.string().min(1), code: z.string().length(6) }),
+  z.object({ phone: z.string().min(7), code: z.string().length(6) }),
+]);
 
 /** Verify OTP code, set employee session cookie */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const parsed = schema.safeParse(body);
-    if (!parsed.success) return apiError("Validation failed", "Phone and 6-digit code required");
+    if (!parsed.success) return apiError("Validation failed", "employeeId/phone and 6-digit code required");
 
-    const { phone, code } = parsed.data;
-    const normalised = phone.replace(/\s/g, "");
+    const { code } = parsed.data;
     const now = new Date();
 
+    // Resolve phone from employeeId or use phone directly
+    let phone: string | null = null;
+    let employeeId: string | null = null;
+
+    if ("employeeId" in parsed.data) {
+      const emp = await prisma.employee.findFirst({
+        where: { id: parsed.data.employeeId, status: "ACTIVE" },
+        select: { id: true, phone: true },
+      });
+      if (!emp) return apiError("Not found", "Employee not found", 404);
+      phone = emp.phone;
+      employeeId = emp.id;
+    } else {
+      phone = parsed.data.phone.replace(/\s/g, "");
+      const emp = await prisma.employee.findFirst({
+        where: { phone, status: "ACTIVE" },
+        select: { id: true },
+      });
+      if (!emp) return apiError("Not found", "Employee not found", 404);
+      employeeId = emp.id;
+    }
+
+    if (!phone) return apiError("No phone", "No phone number on file", 400);
+
     const otp = await prisma.employeeOTP.findFirst({
-      where: { phone: normalised, code, usedAt: null },
+      where: { phone, code, usedAt: null },
       orderBy: { createdAt: "desc" },
     });
 
-    if (!otp) {
-      return apiError("Invalid code", "Incorrect code. Try again.", 401);
-    }
+    if (!otp) return apiError("Invalid code", "Incorrect code. Try again.", 401);
+    if (otp.expiresAt < now) return apiError("Expired", "Code expired. Request a new one.", 401);
 
-    if (otp.expiresAt < now) {
-      return apiError("Expired", "Code expired. Request a new one.", 401);
-    }
-
-    // Mark OTP used
     await prisma.employeeOTP.update({
       where: { id: otp.id },
       data: { usedAt: now },
     });
 
-    // Get employee record
-    const employee = await prisma.employee.findFirst({
-      where: { phone: normalised, status: "ACTIVE" },
-      select: { id: true },
-    });
-
-    if (!employee) {
-      return apiError("Not found", "Employee not found", 404);
-    }
-
-    const token = await signEmployeeToken({ employeeId: employee.id, phone: normalised });
-
-    const response = Response.json(apiSuccess({ employeeId: employee.id }, "Login successful"));
+    const token = await signEmployeeToken({ employeeId, phone });
+    const response = Response.json(apiSuccess({ employeeId }, "Login successful"));
     response.headers.set("Set-Cookie", buildSessionCookieHeader(token));
     return response;
   } catch {
