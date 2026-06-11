@@ -10,24 +10,28 @@ export async function GET() {
 
     const employee = await prisma.employee.findUnique({
       where: { id: session.employeeId },
-      select: { qrCodeToken: true },
+      select: { qrCodeToken: true, employeeNumber: true },
     });
     if (!employee) return apiError("Not found", "Employee not found", 404);
 
-    const latestEntry = await prisma.timeEntry.findFirst({
-      where: { employeeId: session.employeeId },
-      orderBy: { timestamp: "desc" },
-      select: { eventType: true, timestamp: true },
+    const openEntry = await prisma.timeEntry.findFirst({
+      where: {
+        employeeId: session.employeeId,
+        clockOut: null,
+        status: { in: ["IN_PROGRESS", "ON_BREAK"] },
+      },
+      select: { status: true, clockIn: true },
     });
 
     return Response.json(
       apiSuccess({
         qrCodeToken: employee.qrCodeToken,
+        employeeNumber: employee.employeeNumber,
         appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
-        clockStatus: latestEntry
+        clockStatus: openEntry
           ? {
-              type: latestEntry.eventType,
-              timestamp: latestEntry.timestamp.toISOString(),
+              type: openEntry.status === "ON_BREAK" ? "ON_BREAK" : "CLOCKED_IN",
+              timestamp: openEntry.clockIn.toISOString(),
             }
           : null,
       })

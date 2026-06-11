@@ -22,6 +22,7 @@ import { EmployeeClassificationBadge } from "@/components/shared/employee-classi
 
 type Employee = {
   id: string;
+  employeeNumber: string | null;
   firstName: string;
   lastName: string;
   preferredName: string | null;
@@ -171,7 +172,7 @@ export default function EmployeesPage() {
         <DataTable>
           <thead>
             <tr className="border-b bg-muted/50">
-              {["Name", "Department", "Job Title", "Job starting date", "Schedule", "Missing Signed", "Status", "Actions"].map((h) => (
+              {["ID", "Name", "Department", "Job Title", "Job starting date", "Schedule", "Missing Signed", "Status", "Actions"].map((h) => (
                 <th key={h} className="px-4 py-3 text-left font-medium text-muted-foreground">
                   {h}
                 </th>
@@ -225,6 +226,7 @@ export default function EmployeesPage() {
           <DataTable>
             <thead>
               <tr className="border-b bg-muted/50">
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">ID</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Name</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Department</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Job Title</th>
@@ -240,6 +242,11 @@ export default function EmployeesPage() {
             <tbody>
               {employees.map((emp) => (
                 <tr key={emp.id} className="border-b hover:bg-muted/30">
+                  <td className="px-4 py-3">
+                    <span className="font-mono text-xs font-medium text-muted-foreground">
+                      {emp.employeeNumber ? String(emp.employeeNumber).padStart(6, "0") : "—"}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 font-medium">
                     <div className="flex flex-col gap-1">
                       <span>

@@ -4,6 +4,8 @@ import {
   Users,
   Clock,
   Calendar,
+  CalendarClock,
+  Wallet,
   FileText,
   Settings,
   UserCircle,
@@ -142,14 +144,14 @@ export const NAV_ITEMS: NavItem[] = [
   {
     label: "Leave Requests",
     href: "/admin/leave",
-    icon: Calendar,
+    icon: CalendarClock,
     roles: ["HR_ADMIN", "SUPER_ADMIN"],
     badgeCountPath: "/api/leave/stats",
   },
   {
     label: "Leave Balances",
     href: "/admin/leave/balances",
-    icon: Calendar,
+    icon: Wallet,
     roles: ["HR_ADMIN", "SUPER_ADMIN"],
   },
   {
@@ -169,6 +171,12 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/admin/timesheet",
     icon: Clock,
     roles: ["HR_ADMIN", "SUPER_ADMIN"],
+  },
+  {
+    label: "Scanner",
+    href: "/admin/clock/scanner",
+    icon: ScanLine,
+    roles: ["HR_ADMIN", "SUPER_ADMIN", "MANAGER"],
   },
   {
     label: "Documents",

@@ -6,6 +6,7 @@ import { sendWelcomeEmail } from "@/lib/instantly";
 import { sendSms } from "@/lib/twilio";
 import type { EmployeeFormValues } from "@/lib/validations";
 import { buildAddressBirthdateData } from "@/lib/employees/personal-info";
+import { generateEmployeeNumber } from "@/lib/employees/employee-number";
 import { createLeaveBalancesForEmployee } from "@/lib/leave/balances";
 import { seedCompanyWideDocumentAssignments, seedAutomationDocumentAssignments } from "@/lib/documents/assignments";
 
@@ -30,9 +31,12 @@ export async function createEmployee(
   const scheduleConfig = input.scheduleConfig as Prisma.InputJsonValue;
   const personalData = buildAddressBirthdateData(input);
 
+  const employeeNumber = await generateEmployeeNumber();
+
   const employee = await prisma.$transaction(async (tx) => {
     const newEmployee = await tx.employee.create({
       data: {
+        employeeNumber,
         firstName: input.firstName,
         lastName: input.lastName,
         preferredName: input.preferredName || null,

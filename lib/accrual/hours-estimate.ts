@@ -1,6 +1,5 @@
 import { calculateBreaks } from "@/lib/breaks";
 import { getPrimaryShift, resolveCustomSchedule } from "@/lib/breaks/schedule-helpers";
-import { calculateHoursFromTimeEntries } from "@/lib/time/hours-worked";
 import { prisma } from "@/lib/prisma";
 import { WEEKDAY_KEYS, type WeekdayKey } from "@/lib/schedule";
 import type { ScheduleType } from "@prisma/client";
@@ -26,15 +25,17 @@ export function getWeeklyScheduledHours(
   return weeklyHours > 0 ? weeklyHours : 40;
 }
 
-/** Total clock-in/out hours from stored time entries */
+/** Total hours from completed session-based time entries */
 export async function getTotalHoursFromTimeEntries(employeeId: string): Promise<number> {
   const entries = await prisma.timeEntry.findMany({
-    where: { employeeId },
-    orderBy: { timestamp: "asc" },
-    select: { eventType: true, timestamp: true },
+    where: {
+      employeeId,
+      status: { in: ["COMPLETED", "APPROVED"] },
+    },
+    select: { hoursWorked: true },
   });
 
-  return calculateHoursFromTimeEntries(entries);
+  return entries.reduce((sum, e) => sum + (e.hoursWorked ?? 0), 0);
 }
 
 /**

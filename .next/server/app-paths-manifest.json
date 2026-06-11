@@ -1,1 +1,4 @@
-{}
+{
+  "/clock-station/page": "app/clock-station/page.js",
+  "/(dashboard)/admin/dashboard/page": "app/(dashboard)/admin/dashboard/page.js"
+}

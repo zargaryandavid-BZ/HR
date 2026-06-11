@@ -309,6 +309,23 @@ export function AppShell({ children }: AppShellProps) {
           <div className="flex-1" />
 
           <div className="flex items-center gap-2">
+            {(role === "HR_ADMIN" || role === "SUPER_ADMIN" || role === "MANAGER") && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="hidden sm:flex items-center gap-1.5 text-xs font-medium"
+                onClick={() =>
+                  window.open(
+                    "/clock-station",
+                    "clock-station",
+                    "width=480,height=780,toolbar=no,menubar=no,scrollbars=no,resizable=yes"
+                  )
+                }
+              >
+                <span>🕐</span>
+                Clock Station
+              </Button>
+            )}
             <NotificationBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

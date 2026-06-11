@@ -126,7 +126,16 @@ export default function EmployeeDetailPage({ params }: PageProps) {
           employee.lastName,
           employee.preferredName
         )}
-        description={employee.jobTitle ?? undefined}
+        description={
+          [
+            employee.employeeNumber
+              ? String(employee.employeeNumber).padStart(6, "0")
+              : null,
+            employee.jobTitle ?? null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || undefined
+        }
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             {/* Open portal + copy link — HR Admin / Super Admin only */}

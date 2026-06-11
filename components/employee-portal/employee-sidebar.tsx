@@ -57,6 +57,7 @@ type MeData = {
 
 type QrData = {
   qrCodeToken: string | null;
+  employeeNumber: string | null;
   appUrl: string;
   clockStatus: { type: "CLOCK_IN" | "CLOCK_OUT"; timestamp: string } | null;
 };
@@ -241,6 +242,14 @@ export function EmployeeSidebar() {
             <span className="h-2 w-2 rounded-full bg-green-500" />
             <span className="text-green-700">
               Clocked IN{clockTime ? ` since ${clockTime}` : ""}
+            </span>
+          </div>
+        )}
+
+        {qrData?.employeeNumber && (
+          <div className="text-center">
+            <span className="font-mono text-[13px] font-bold tracking-widest text-slate-800">
+              {String(qrData.employeeNumber).padStart(6, "0")}
             </span>
           </div>
         )}

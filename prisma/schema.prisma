@@ -58,17 +58,23 @@ enum TShirtSize {
   XXXL
 }
 
-enum TimeEventType {
-  CLOCK_IN
-  CLOCK_OUT
+enum TimeEntryStatus {
+  IN_PROGRESS
+  ON_BREAK
+  COMPLETED
+  APPROVED
+  FLAGGED
 }
 
-enum TimeEntrySource {
-  QR_KIOSK
-  MOBILE_IN_ZONE
-  MOBILE_OFFSITE
-  MANUAL_HR
-  MANUAL_MANAGER
+enum ClockMethod {
+  PORTAL
+  QR_SCAN
+  MANUAL
+}
+
+enum BreakType {
+  REST
+  MEAL
 }
 
 enum AccrualEventType {
@@ -199,7 +205,6 @@ model User {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  editedTimeEntries TimeEntry[] @relation("EditedByUser")
   reviewedLeaveRequests LeaveRequest[] @relation("ReviewedByUser")
   adjustedLeaveBalances LeaveBalance[] @relation("AdjustedByUser")
   adjustedAccrualLogs LeaveAccrualLog[] @relation("AccrualAdjustedByUser")
@@ -244,6 +249,7 @@ model Employee {
   benefitsEnrollmentDeadline  DateTime?
   startDate               DateTime?
   status                  EmployeeStatus @default(ACTIVE)
+  employeeNumber          String?        @unique
   qrCodeToken             String?        @unique
   scheduleType            ScheduleType   @default(FIXED)
   scheduleConfig          Json?
@@ -380,25 +386,38 @@ model AccrualPolicy {
 }
 
 model TimeEntry {
-  id            String          @id @default(cuid())
-  employeeId    String
-  employee      Employee        @relation(fields: [employeeId], references: [id])
-  eventType     TimeEventType
-  timestamp     DateTime
-  source        TimeEntrySource
-  editedById    String?
-  editedBy      User?           @relation("EditedByUser", fields: [editedById], references: [id])
-  editReason    String?
-  isFlagged     Boolean         @default(false)
-  flagReason    String?
-  locationLat   Float?
-  locationLng   Float?
-  locationZoneId String?
-  locationZone  LocationZone?   @relation(fields: [locationZoneId], references: [id])
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id             String          @id @default(cuid())
+  employeeId     String
+  employee       Employee        @relation(fields: [employeeId], references: [id])
+  clockIn        DateTime
+  clockOut       DateTime?
+  hoursWorked    Float?
+  status         TimeEntryStatus @default(IN_PROGRESS)
+  clockInMethod  ClockMethod     @default(PORTAL)
+  clockOutMethod ClockMethod?
+  breaks         BreakEntry[]
+  date           DateTime        @default(dbgenerated("now()"))
+  notes          String?
+  approvedById   String?
+  approvedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
-  @@index([employeeId, timestamp])
+  @@index([employeeId, clockIn])
+  @@index([status])
+}
+
+model BreakEntry {
+  id          String     @id @default(cuid())
+  timeEntryId String
+  timeEntry   TimeEntry  @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+  breakType   BreakType
+  startedAt   DateTime
+  endedAt     DateTime?
+  durationMin Float?
+  createdAt   DateTime   @default(now())
+
+  @@index([timeEntryId])
 }
 
 model LocationZone {
@@ -410,8 +429,6 @@ model LocationZone {
   isActive     Boolean     @default(true)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
-
-  timeEntries TimeEntry[]
 }
 
 model LeaveType {

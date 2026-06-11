@@ -81,6 +81,7 @@ export function sanitizeEmployeeResponse<T extends EmployeeWithRelations>(
 /** Prisma select for employee list */
 export const employeeListSelect = {
   id: true,
+  employeeNumber: true,
   firstName: true,
   lastName: true,
   preferredName: true,

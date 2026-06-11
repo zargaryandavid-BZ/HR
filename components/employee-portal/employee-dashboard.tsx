@@ -15,6 +15,7 @@ import {
   EmployeeNotificationsPanel,
   NotificationBell,
 } from "./employee-notifications-panel";
+import { EmployeeClockWidget } from "./employee-clock-widget";
 
 type MeData = {
   id: string;
@@ -86,6 +87,7 @@ export function EmployeeDashboard() {
 
         {/* Main content */}
         <main className="flex-1 min-w-0 space-y-4">
+          <EmployeeClockWidget />
           <OnboardingTasksBanner />
           <EmployeeLeaveSection />
           <EmployeeBreakScheduleSection />
