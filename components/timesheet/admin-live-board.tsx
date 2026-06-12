@@ -32,6 +32,8 @@ type LiveEmployee = {
   isOnBreak: boolean;
   clockIn: string | null;
   elapsed: number;
+  breakStartedAt: string | null;
+  breakElapsed: number;
 };
 
 type TimeEntryRow = {
@@ -46,7 +48,13 @@ type TimeEntryRow = {
     lastName: string;
     department: { name: string } | null;
   };
-  breaks?: Array<{ id: string; breakType: string; durationMin: number | null }>;
+  breaks?: Array<{
+    id: string;
+    breakType: string;
+    startedAt: string;
+    endedAt: string | null;
+    durationMin: number | null;
+  }>;
 };
 
 type RangeFilter = "today" | "week" | "month" | "custom";
@@ -308,16 +316,29 @@ export function AdminLiveBoard() {
                           {(() => {
                             const breaks = entry.breaks ?? [];
                             if (breaks.length === 0) return <span>—</span>;
-                            const totalMin = breaks.reduce(
+                            const completedBreaks = breaks.filter((b) => b.endedAt != null);
+                            const openBreaks = breaks.filter((b) => b.endedAt == null);
+                            const totalMin = completedBreaks.reduce(
                               (sum, b) => sum + (b.durationMin ?? 0),
                               0
                             );
                             const h = Math.floor(totalMin / 60);
                             const m = totalMin % 60;
-                            const label = h > 0 ? `${h}h ${m}m` : `${m}m`;
+                            const durationLabel = totalMin > 0
+                              ? (h > 0 ? `${h}h ${m}m` : `${m}m`)
+                              : null;
+                            const countLabel = `${breaks.length} break${breaks.length !== 1 ? "s" : ""}`;
                             return (
-                              <span title={`${breaks.length} break${breaks.length !== 1 ? "s" : ""}`}>
-                                {label}
+                              <span className="flex flex-col gap-0.5">
+                                <span className="font-medium text-slate-700">{countLabel}</span>
+                                {durationLabel && (
+                                  <span className="text-xs">{durationLabel} total</span>
+                                )}
+                                {openBreaks.length > 0 && (
+                                  <span className="text-xs text-amber-600">
+                                    {openBreaks.length} in progress
+                                  </span>
+                                )}
                               </span>
                             );
                           })()}
@@ -403,7 +424,9 @@ export function AdminLiveBoard() {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">{emp.name}</p>
                       <p className="text-xs text-muted-foreground truncate">
-                        {emp.department ?? emp.position ?? "—"}
+                        {emp.isOnBreak
+                          ? `On break · ${formatElapsed(emp.breakElapsed)}`
+                          : (emp.department ?? emp.position ?? "—")}
                       </p>
                     </div>
                     {emp.isClockedIn && (
@@ -425,6 +448,7 @@ export function AdminLiveBoard() {
           entryId={editEntry.id}
           clockIn={editEntry.clockIn}
           clockOut={editEntry.clockOut}
+          breaks={editEntry.breaks ?? []}
           open={!!editEntry}
           onClose={() => setEditEntry(null)}
           onSaved={refreshEntries}
