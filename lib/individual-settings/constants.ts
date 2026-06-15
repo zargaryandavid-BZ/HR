@@ -28,6 +28,18 @@ export function employeeNeedsSignedUpload(status: DocumentCompletionStatus): boo
   );
 }
 
+/** Unsigned document URL — uses HR-replaced file when awaiting employee signature */
+export function getDocumentDownloadUrl(doc: {
+  fileUrl: string;
+  signedFileUrl: string | null;
+  status: DocumentCompletionStatus;
+}): string {
+  if (doc.status === "signature_required" && doc.signedFileUrl) {
+    return doc.signedFileUrl;
+  }
+  return doc.fileUrl;
+}
+
 export type EmployeeDocumentStatusItem = {
   id: string;
   title: string;

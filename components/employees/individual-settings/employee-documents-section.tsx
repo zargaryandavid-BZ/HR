@@ -19,11 +19,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
-import type {
-  DocumentCompletionStatus,
-  EmployeeDocumentStatusItem,
+import {
+  getDocumentDownloadUrl,
+  isDocumentHrConfirmed,
+  type DocumentCompletionStatus,
+  type EmployeeDocumentStatusItem,
 } from "@/lib/individual-settings/constants";
-import { isDocumentHrConfirmed } from "@/lib/individual-settings/constants";
 import { cn } from "@/lib/utils";
 
 type DocumentsResponse = {
@@ -332,6 +333,7 @@ function DocumentRow({
   const { role } = useCurrentUser();
   const isHrAdmin = mode === "admin" && ["HR_ADMIN", "SUPER_ADMIN"].includes(role ?? "");
   const isHrApproved = doc.status === "hr_approved";
+  const downloadUrl = getDocumentDownloadUrl(doc);
 
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -438,7 +440,7 @@ function DocumentRow({
         <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           {mode === "admin" && (
             <Button variant="outline" size="sm" asChild>
-              <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+              <a href={downloadUrl} target="_blank" rel="noopener noreferrer">
                 <Download className="h-4 w-4 mr-1" />
                 View
               </a>
@@ -448,7 +450,7 @@ function DocumentRow({
           {mode === "employee" && (
             <>
               <Button variant="outline" size="sm" asChild>
-                <a href={doc.fileUrl} download target="_blank" rel="noopener noreferrer">
+                <a href={downloadUrl} download target="_blank" rel="noopener noreferrer">
                   <Download className="h-4 w-4 mr-1" />
                   Download
                 </a>

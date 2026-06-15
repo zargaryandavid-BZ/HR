@@ -4,7 +4,10 @@ import { useRef } from "react";
 import { Download, ExternalLink, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { DocumentCompletionStatus } from "@/lib/individual-settings/constants";
-import { employeeNeedsSignedUpload } from "@/lib/individual-settings/constants";
+import {
+  employeeNeedsSignedUpload,
+  getDocumentDownloadUrl,
+} from "@/lib/individual-settings/constants";
 
 type EmployeeDocumentActionsProps = {
   fileUrl: string;
@@ -25,6 +28,7 @@ export function EmployeeDocumentActions({
   const inputRef = useRef<HTMLInputElement>(null);
   const isCompleted = status === "signed" || status === "hr_approved";
   const needsSignedUpload = employeeNeedsSignedUpload(status);
+  const downloadUrl = getDocumentDownloadUrl({ fileUrl, signedFileUrl, status });
 
   if (isCompleted && signedFileUrl) {
     return (
@@ -51,7 +55,7 @@ export function EmployeeDocumentActions({
   return (
     <div className="flex flex-col gap-1 w-[118px] shrink-0">
       <Button size="sm" variant="outline" className="text-xs h-7 w-full justify-center px-2" asChild>
-        <a href={fileUrl} download target="_blank" rel="noopener noreferrer">
+        <a href={downloadUrl} download target="_blank" rel="noopener noreferrer">
           <Download className="h-3 w-3 mr-1" />
           Download
         </a>
