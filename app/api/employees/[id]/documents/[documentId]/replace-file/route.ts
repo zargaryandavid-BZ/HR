@@ -5,18 +5,35 @@ import { apiSuccess, apiError } from "@/lib/api-response";
 import { onboardingAssignmentKey } from "@/lib/documents/assignment-keys";
 import { canGenerateHrDocuments } from "@/lib/individual-settings/auth";
 import { logIndividualSettingsAudit } from "@/lib/individual-settings/audit";
-import { uploadSignedDocument } from "@/lib/documents/storage";
+import {
+  deleteSignedDocumentByUrl,
+  uploadSignedDocument,
+} from "@/lib/documents/storage";
 
 type RouteParams = { params: Promise<{ id: string; documentId: string }> };
 
+function storageConfigured(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+}
+
 /** HR replaces the signed file — resets signing status so employee must re-sign */
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
+async function handleReplaceFile(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getSession();
     if (!session) return apiError("Unauthorized", "Not authenticated", 401);
 
     if (!canGenerateHrDocuments(session)) {
       return apiError("Forbidden", "Not authorized", 403);
+    }
+
+    if (!storageConfigured()) {
+      return apiError(
+        "Storage unavailable",
+        "File storage is not configured. Add SUPABASE_SERVICE_ROLE_KEY to the server environment.",
+        503
+      );
     }
 
     const { id: employeeId, documentId } = await params;
@@ -34,20 +51,30 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (!sop) return apiError("Not found", "Document not found", 404);
 
     const formData = await request.formData();
-    const file = formData.get("file") as File | null;
-    if (!file || file.size === 0) {
+    const fileEntry = formData.get("file");
+    if (!(fileEntry instanceof File) || fileEntry.size === 0) {
       return apiError("Validation failed", "File is required");
     }
-    if (file.size > 10 * 1024 * 1024) {
+    if (fileEntry.size > 10 * 1024 * 1024) {
       return apiError("Validation failed", "File must be under 10 MB");
     }
 
-    const uploaded = await uploadSignedDocument(employeeId, documentId, file);
+    const existingAssignment = await prisma.documentAssignment.findUnique({
+      where: {
+        sopId_employeeId_isOffboarding: onboardingAssignmentKey(documentId, employeeId),
+      },
+      select: { id: true, signedFileUrl: true, signedAt: true, hrApprovedAt: true },
+    });
+
+    const uploaded = await uploadSignedDocument(employeeId, documentId, fileEntry);
     if (!uploaded) {
-      return apiError("Validation failed", "File must be PDF, JPG, or PNG");
+      return apiError(
+        "Upload failed",
+        "Could not upload file. Use PDF, JPG, or PNG under 10 MB and verify Supabase storage is configured.",
+        503
+      );
     }
 
-    // Save new file URL, reset signedAt + hrApprovedAt so status becomes "signature_required"
     const assignment = await prisma.documentAssignment.upsert({
       where: {
         sopId_employeeId_isOffboarding: onboardingAssignmentKey(documentId, employeeId),
@@ -72,37 +99,52 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    await Promise.all([
-      // Audit log
-      logIndividualSettingsAudit({
-        userId: session.id,
-        action: "DOCUMENT_FILE_REPLACED",
-        targetId: employeeId,
-        targetTable: "DocumentAssignment",
-        newValue: {
-          employeeId,
-          documentId,
-          fileName: uploaded.fileName,
-          performedBy: session.id,
-          previousStatus: "Signed",
-          newStatus: "SignatureRequired",
-        },
-      }),
-      // Notify the employee to re-sign
-      prisma.notification.create({
-        data: {
-          employeeId,
-          eventType: "DOCUMENT_UPDATED",
-          channel: "IN_APP",
-          status: "SENT",
-          sentAt: new Date(),
-          contentSnapshot: {
-            message: `The ${sop.title} has been updated. Please download and sign the new version.`,
-            href: "/employee/dashboard",
+    if (
+      existingAssignment?.signedFileUrl &&
+      existingAssignment.signedFileUrl !== uploaded.url
+    ) {
+      await deleteSignedDocumentByUrl(existingAssignment.signedFileUrl).catch(() => null);
+    }
+
+    const previousStatus = existingAssignment?.hrApprovedAt
+      ? "HRApproved"
+      : existingAssignment?.signedAt
+        ? "Signed"
+        : "NotStarted";
+
+    try {
+      await Promise.all([
+        logIndividualSettingsAudit({
+          userId: session.id,
+          action: "DOCUMENT_FILE_REPLACED",
+          targetId: employeeId,
+          targetTable: "DocumentAssignment",
+          newValue: {
+            employeeId,
+            documentId,
+            fileName: uploaded.fileName,
+            performedBy: session.id,
+            previousStatus,
+            newStatus: "SignatureRequired",
           },
-        },
-      }),
-    ]);
+        }),
+        prisma.notification.create({
+          data: {
+            employeeId,
+            eventType: "DOCUMENT_UPDATED",
+            channel: "IN_APP",
+            status: "SENT",
+            sentAt: new Date(),
+            contentSnapshot: {
+              message: `The ${sop.title} has been updated. Please download and sign the new version.`,
+              href: "/employee/dashboard",
+            },
+          },
+        }),
+      ]);
+    } catch (sideEffectError) {
+      console.error("Replace file side-effect error:", sideEffectError);
+    }
 
     return Response.json(
       apiSuccess(
@@ -115,7 +157,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         "File replaced — employee must re-sign"
       )
     );
-  } catch {
+  } catch (error) {
+    console.error("Replace file error:", error);
     return apiError("Server error", "Failed to replace file", 500);
   }
+}
+
+export async function PATCH(request: NextRequest, ctx: RouteParams) {
+  return handleReplaceFile(request, ctx);
+}
+
+export async function POST(request: NextRequest, ctx: RouteParams) {
+  return handleReplaceFile(request, ctx);
 }

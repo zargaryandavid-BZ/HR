@@ -79,34 +79,39 @@ export async function uploadSignedDocument(
   documentId: string,
   file: File
 ): Promise<{ url: string; path: string; fileName: string; fileSize: number } | null> {
-  const contentType = resolveSignedDocumentContentType(file);
-  if (!contentType) {
+  try {
+    const contentType = resolveSignedDocumentContentType(file);
+    if (!contentType) {
+      return null;
+    }
+
+    const bucketReady = await ensureStorageBucket(DOCUMENTS_BUCKET);
+    if (!bucketReady) {
+      console.error("Signed document upload error: storage bucket unavailable");
+      return null;
+    }
+
+    const supabase = createAdminClient();
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `documents/signed/${employeeId}/${documentId}/${Date.now()}-${safeName}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    const { error } = await supabase.storage.from(DOCUMENTS_BUCKET).upload(path, buffer, {
+      contentType,
+      upsert: false,
+    });
+
+    if (error) {
+      console.error("Signed document upload error:", error.message);
+      return null;
+    }
+
+    const { data } = supabase.storage.from(DOCUMENTS_BUCKET).getPublicUrl(path);
+    return { url: data.publicUrl, path, fileName: file.name, fileSize: file.size };
+  } catch (error) {
+    console.error("Signed document upload error:", error);
     return null;
   }
-
-  const bucketReady = await ensureStorageBucket(DOCUMENTS_BUCKET);
-  if (!bucketReady) {
-    console.error("Signed document upload error: storage bucket unavailable");
-    return null;
-  }
-
-  const supabase = createAdminClient();
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const path = `documents/signed/${employeeId}/${documentId}/${Date.now()}-${safeName}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  const { error } = await supabase.storage.from(DOCUMENTS_BUCKET).upload(path, buffer, {
-    contentType,
-    upsert: false,
-  });
-
-  if (error) {
-    console.error("Signed document upload error:", error.message);
-    return null;
-  }
-
-  const { data } = supabase.storage.from(DOCUMENTS_BUCKET).getPublicUrl(path);
-  return { url: data.publicUrl, path, fileName: file.name, fileSize: file.size };
 }
 
 /** Best-effort delete of a signed document from Supabase Storage */

@@ -381,10 +381,10 @@ function DocumentRow({
       formData.append("file", file);
       const res = await fetch(
         `/api/employees/${employeeId}/documents/${doc.id}/replace-file`,
-        { method: "PATCH", body: formData }
+        { method: "POST", body: formData }
       );
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Upload failed");
+      if (!res.ok) throw new Error(json.message ?? json.error ?? "Upload failed");
     },
     onSuccess: () => {
       onMutationSuccess();
