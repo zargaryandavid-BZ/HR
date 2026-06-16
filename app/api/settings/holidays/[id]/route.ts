@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiSuccess, apiError } from "@/lib/api-response";
+import { parseFormDate, toDateOnlyString } from "@/lib/dates";
 import { holidaySchema } from "@/lib/validations";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -22,13 +23,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       where: { id },
       data: {
         name: parsed.data.name,
-        date: new Date(parsed.data.date),
+        date: parseFormDate(parsed.data.date),
         isPaid: parsed.data.isPaid,
         isRecurringAnnually: parsed.data.isRecurringAnnually,
       },
     });
 
-    return Response.json(apiSuccess(holiday, "Holiday updated"));
+    return Response.json(
+      apiSuccess(
+        { ...holiday, date: toDateOnlyString(holiday.date) },
+        "Holiday updated"
+      )
+    );
   } catch {
     return apiError("Server error", "Failed to update holiday", 500);
   }

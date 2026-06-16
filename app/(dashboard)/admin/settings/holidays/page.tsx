@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
-import { ChevronDown, Download, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Download, Pencil, Plus, Trash2 } from "lucide-react";
 import { PageHeader, DataTable, EmptyState } from "@/components/shared/page-header";
 import { RoleGate } from "@/components/shared/role-gate";
 import { Button } from "@/components/ui/button";
@@ -19,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { formatStoredDate } from "@/lib/dates";
 
 type Holiday = {
   id: string;
@@ -30,9 +30,14 @@ type Holiday = {
 
 const IMPORT_YEARS = [2025, 2026, 2027, 2028] as const;
 
+function toFormDateValue(date: string): string {
+  return date.slice(0, 10);
+}
+
 /** Company holiday management page */
 export default function HolidaysPage() {
   const queryClient = useQueryClient();
+  const [editing, setEditing] = useState<Holiday | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
@@ -54,10 +59,14 @@ export default function HolidaysPage() {
     },
   });
 
-  const createMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/settings/holidays", {
-        method: "POST",
+      const url = editing
+        ? `/api/settings/holidays/${editing.id}`
+        : "/api/settings/holidays";
+      const method = editing ? "PATCH" : "POST";
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
@@ -67,14 +76,15 @@ export default function HolidaysPage() {
           isCompanyWide: true,
         }),
       });
-      if (!res.ok) throw new Error("Failed to create");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed to save");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["holidays"] });
-      setShowForm(false);
-      setName("");
-      setDate("");
+      resetForm();
+      showToast(editing ? "Holiday updated" : "Holiday created");
     },
+    onError: () => showToast("Failed to save holiday"),
   });
 
   const deleteMutation = useMutation({
@@ -105,6 +115,29 @@ export default function HolidaysPage() {
     },
     onError: () => showToast("Failed to import federal holidays"),
   });
+
+  function resetForm() {
+    setShowForm(false);
+    setEditing(null);
+    setName("");
+    setDate("");
+    setIsPaid(true);
+    setIsRecurring(false);
+  }
+
+  function startEdit(holiday: Holiday) {
+    setEditing(holiday);
+    setName(holiday.name);
+    setDate(toFormDateValue(holiday.date));
+    setIsPaid(holiday.isPaid);
+    setIsRecurring(holiday.isRecurringAnnually);
+    setShowForm(true);
+  }
+
+  function startCreate() {
+    resetForm();
+    setShowForm(true);
+  }
 
   return (
     <div>
@@ -143,7 +176,7 @@ export default function HolidaysPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </RoleGate>
-            <Button onClick={() => setShowForm(true)}>
+            <Button onClick={startCreate}>
               <Plus className="h-4 w-4 mr-2" />
               Add Holiday
             </Button>
@@ -153,7 +186,9 @@ export default function HolidaysPage() {
 
       {showForm && (
         <Card className="mb-6">
-          <CardHeader><CardTitle>New Holiday</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle>{editing ? "Edit Holiday" : "New Holiday"}</CardTitle>
+          </CardHeader>
           <CardContent className="space-y-4 max-w-md">
             <div className="space-y-2">
               <Label>Name</Label>
@@ -172,8 +207,15 @@ export default function HolidaysPage() {
               Recurring annually
             </label>
             <div className="flex gap-2">
-              <Button onClick={() => createMutation.mutate()} disabled={!name || !date}>Save</Button>
-              <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button
+                onClick={() => saveMutation.mutate()}
+                disabled={!name || !date || saveMutation.isPending}
+              >
+                {saveMutation.isPending ? "Saving…" : "Save"}
+              </Button>
+              <Button variant="outline" onClick={resetForm}>
+                Cancel
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -198,21 +240,32 @@ export default function HolidaysPage() {
             {holidays.map((h) => (
               <tr key={h.id} className="border-b">
                 <td className="px-4 py-3 font-medium">{h.name}</td>
-                <td className="px-4 py-3">{format(new Date(h.date), "MMM d, yyyy")}</td>
+                <td className="px-4 py-3">
+                  {formatStoredDate(h.date, { month: "short", day: "numeric", year: "numeric" })}
+                </td>
                 <td className="px-4 py-3">
                   <Badge variant={h.isPaid ? "success" : "secondary"}>{h.isPaid ? "Paid" : "Unpaid"}</Badge>
                 </td>
                 <td className="px-4 py-3">{h.isRecurringAnnually ? "Yes" : "No"}</td>
                 <td className="px-4 py-3">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      if (confirm(`Delete ${h.name}?`)) deleteMutation.mutate(h.id);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <RoleGate allowedRoles={["SUPER_ADMIN", "HR_ADMIN"]}>
+                      <Button variant="ghost" size="icon" onClick={() => startEdit(h)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </RoleGate>
+                    <RoleGate allowedRoles={["SUPER_ADMIN", "HR_ADMIN"]}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (confirm(`Delete ${h.name}?`)) deleteMutation.mutate(h.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </RoleGate>
+                  </div>
                 </td>
               </tr>
             ))}
