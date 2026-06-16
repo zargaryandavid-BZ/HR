@@ -22,8 +22,9 @@ const FEDERAL_HOLIDAY_NAMES = {
   christmas: "Christmas Day",
 } as const;
 
+/** Calendar date at UTC noon — avoids timezone day-shift when stored/displayed */
 function utcDate(year: number, month: number, day: number): Date {
-  return new Date(Date.UTC(year, month, day));
+  return new Date(Date.UTC(year, month, day, 12, 0, 0));
 }
 
 /** Nth occurrence of a weekday in a month (weekday: 0=Sun … 6=Sat) */

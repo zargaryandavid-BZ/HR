@@ -28,7 +28,7 @@ type Holiday = {
   isRecurringAnnually: boolean;
 };
 
-const IMPORT_YEARS = [2025, 2026, 2027, 2028] as const;
+const IMPORT_YEARS = [2026, 2027, 2028, 2029, 2030] as const;
 
 function toFormDateValue(date: string): string {
   return date.slice(0, 10);
