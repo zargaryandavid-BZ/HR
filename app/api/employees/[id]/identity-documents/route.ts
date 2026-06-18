@@ -10,6 +10,7 @@ import {
 } from "@/lib/identity-documents/service";
 import { uploadIdentityDocumentFile } from "@/lib/identity-documents/storage";
 import { validateIdentityDocumentForm } from "@/lib/identity-documents/validation";
+import { isEncryptionConfigured } from "@/lib/utils/encryption";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -125,6 +126,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (!parsed.docType) {
       return apiError("Validation failed", "Document type is required");
+    }
+
+    if (parsed.documentNumber?.trim() && !isEncryptionConfigured()) {
+      return apiError(
+        "Server configuration error",
+        "Document numbers cannot be saved until ENCRYPTION_KEY is configured on the server",
+        503
+      );
     }
 
     let fileUrl: string | null = null;

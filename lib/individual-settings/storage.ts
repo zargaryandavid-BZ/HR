@@ -70,3 +70,19 @@ export async function uploadHrDocumentPdf(
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
   return { url: data.publicUrl, path };
 }
+
+/** Best-effort delete of a generated HR document from Supabase Storage */
+export async function deleteHrDocumentByUrl(fileUrl: string): Promise<void> {
+  try {
+    const url = new URL(fileUrl);
+    const marker = `/storage/v1/object/public/${BUCKET}/`;
+    const idx = url.pathname.indexOf(marker);
+    if (idx === -1) return;
+
+    const path = decodeURIComponent(url.pathname.slice(idx + marker.length));
+    const supabase = createAdminClient();
+    await supabase.storage.from(BUCKET).remove([path]);
+  } catch {
+    // Non-blocking cleanup
+  }
+}

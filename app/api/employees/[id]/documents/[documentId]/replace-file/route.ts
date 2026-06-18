@@ -2,7 +2,10 @@ import { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiSuccess, apiError } from "@/lib/api-response";
-import { onboardingAssignmentKey } from "@/lib/documents/assignment-keys";
+import {
+  onboardingAssignmentKey,
+  offboardingAssignmentKey,
+} from "@/lib/documents/assignment-keys";
 import { canGenerateHrDocuments } from "@/lib/individual-settings/auth";
 import { logIndividualSettingsAudit } from "@/lib/individual-settings/audit";
 import {
@@ -11,6 +14,16 @@ import {
 } from "@/lib/documents/storage";
 
 type RouteParams = { params: Promise<{ id: string; documentId: string }> };
+
+function assignmentKey(
+  documentId: string,
+  employeeId: string,
+  isOffboarding: boolean
+) {
+  return isOffboarding
+    ? offboardingAssignmentKey(documentId, employeeId)
+    : onboardingAssignmentKey(documentId, employeeId);
+}
 
 function storageConfigured(): boolean {
   return Boolean(
@@ -50,6 +63,9 @@ async function handleReplaceFile(request: NextRequest, { params }: RouteParams) 
     });
     if (!sop) return apiError("Not found", "Document not found", 404);
 
+    const isOffboarding = request.nextUrl.searchParams.get("isOffboarding") === "true";
+    const key = assignmentKey(documentId, employeeId, isOffboarding);
+
     const formData = await request.formData();
     const fileEntry = formData.get("file");
     if (!(fileEntry instanceof File) || fileEntry.size === 0) {
@@ -60,9 +76,7 @@ async function handleReplaceFile(request: NextRequest, { params }: RouteParams) 
     }
 
     const existingAssignment = await prisma.documentAssignment.findUnique({
-      where: {
-        sopId_employeeId_isOffboarding: onboardingAssignmentKey(documentId, employeeId),
-      },
+      where: { sopId_employeeId_isOffboarding: key },
       select: { id: true, signedFileUrl: true, signedAt: true, hrApprovedAt: true },
     });
 
@@ -76,14 +90,12 @@ async function handleReplaceFile(request: NextRequest, { params }: RouteParams) 
     }
 
     const assignment = await prisma.documentAssignment.upsert({
-      where: {
-        sopId_employeeId_isOffboarding: onboardingAssignmentKey(documentId, employeeId),
-      },
+      where: { sopId_employeeId_isOffboarding: key },
       create: {
         sopId: documentId,
         employeeId,
         assignedById: session.id,
-        isOffboarding: false,
+        isOffboarding,
         signedFileUrl: uploaded.url,
         signedAt: null,
         hrApprovedAt: null,

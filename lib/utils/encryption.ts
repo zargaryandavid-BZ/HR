@@ -2,6 +2,12 @@ import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
 const ALGORITHM = "aes-256-cbc";
 
+/** Whether AES-256 encryption is configured (required for identity document numbers). */
+export function isEncryptionConfigured(): boolean {
+  const keyHex = process.env.ENCRYPTION_KEY;
+  return !!keyHex && keyHex.length === 64;
+}
+
 function getEncryptionKey(): Buffer {
   const keyHex = process.env.ENCRYPTION_KEY;
   if (!keyHex || keyHex.length !== 64) {

@@ -2,11 +2,19 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Download, Eye, RefreshCw, Send } from "lucide-react";
+import { Download, Eye, MoreHorizontal, RefreshCw, Send } from "lucide-react";
 import type { GeneratedDocumentItem } from "@/lib/individual-settings/constants";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrentUser } from "@/lib/hooks/use-current-user";
 
 type EmployeeHrDocumentsSectionProps = {
   employeeId: string;
@@ -27,6 +35,8 @@ export function EmployeeHrDocumentsSection({
 }: EmployeeHrDocumentsSectionProps) {
   const queryClient = useQueryClient();
   const isAdmin = mode === "admin";
+  const { role } = useCurrentUser();
+  const isHrAdmin = isAdmin && ["HR_ADMIN", "SUPER_ADMIN"].includes(role ?? "");
 
   const { data: generated, isLoading, isFetching } = useQuery({
     queryKey: ["employee-hr-documents", employeeId],
@@ -40,6 +50,10 @@ export function EmployeeHrDocumentsSection({
     },
   });
 
+  const invalidateDocs = () => {
+    queryClient.invalidateQueries({ queryKey: ["employee-hr-documents", employeeId] });
+  };
+
   const generateMutation = useMutation({
     mutationFn: async (type: "OFFER_LETTER" | "WELCOME_EMAIL") => {
       const res = await fetch(`/api/employees/${employeeId}/documents/generate`, {
@@ -51,9 +65,7 @@ export function EmployeeHrDocumentsSection({
       if (!res.ok) throw new Error(json.error ?? "Failed to generate");
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ["employee-hr-documents", employeeId],
-      });
+      invalidateDocs();
       onToast?.("Document generated");
     },
     onError: (e: Error) => onToast?.(e.message),
@@ -73,6 +85,22 @@ export function EmployeeHrDocumentsSection({
       if (!res.ok) throw new Error(json.error ?? "Failed to send document");
     },
     onSuccess: () => onToast?.("Document sent to employee"),
+    onError: (e: Error) => onToast?.(e.message),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: async (generatedDocumentId: string) => {
+      const res = await fetch(
+        `/api/employees/${employeeId}/documents/generated/${generatedDocumentId}`,
+        { method: "DELETE" }
+      );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? json.error ?? "Failed to remove document");
+    },
+    onSuccess: () => {
+      invalidateDocs();
+      onToast?.("HR document removed");
+    },
     onError: (e: Error) => onToast?.(e.message),
   });
 
@@ -98,7 +126,51 @@ export function EmployeeHrDocumentsSection({
             return (
               <Card key={type}>
                 <CardContent className="pt-5 space-y-3">
-                  <p className="font-semibold">{title}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="font-semibold">{title}</p>
+                    {isHrAdmin && doc && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            disabled={
+                              generateMutation.isPending || removeMutation.isPending
+                            }
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Document actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => generateMutation.mutate(type)}
+                            disabled={generateMutation.isPending}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Regenerate
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            disabled={removeMutation.isPending}
+                            onClick={() => {
+                              if (
+                                confirm(
+                                  `Remove this ${title}? You can regenerate it later from the employee profile.`
+                                )
+                              ) {
+                                removeMutation.mutate(doc.id);
+                              }
+                            }}
+                          >
+                            Remove
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
 
                   {syncing ? (
                     <p className="text-sm text-muted-foreground">Updating…</p>
@@ -147,15 +219,14 @@ export function EmployeeHrDocumentsSection({
                     </div>
                   )}
 
-                  {isAdmin && (
+                  {isAdmin && !doc && (
                     <Button
                       size="sm"
-                      variant={doc ? "outline" : "default"}
                       disabled={generateMutation.isPending}
                       onClick={() => generateMutation.mutate(type)}
                     >
                       <RefreshCw className="h-4 w-4 mr-1" />
-                      {doc ? "Regenerate" : `Generate ${title}`}
+                      Generate {title}
                     </Button>
                   )}
                 </CardContent>

@@ -74,6 +74,8 @@ function RequiredLabel({ htmlFor, children }: { htmlFor?: string; children: Reac
   );
 }
 
+const POSITION_NONE = "__none__";
+
 /** Radix Select requires undefined (not "") when no item is selected */
 function toSelectValue(value: string | null | undefined): string | undefined {
   return value ? value : undefined;
@@ -212,6 +214,15 @@ export function EmployeeForm({
       ? stripEmptyStrings(pickSectionPayload(data, visibleSections))
       : data;
     const payload = { ...sectionData };
+
+    // Explicit null clears position when HR chooses "None" (undefined is omitted from JSON)
+    if (
+      isSectionedEdit &&
+      visibleSections.includes("employment") &&
+      !data.positionId
+    ) {
+      (payload as { positionId?: string | null }).positionId = null;
+    }
 
     const url = isEdit ? `/api/employees/${employeeId}` : "/api/employees";
     const method = isEdit ? "PATCH" : "POST";
@@ -356,8 +367,12 @@ export function EmployeeForm({
               control={control}
               render={({ field }) => (
                 <Select
-                  value={toSelectValue(field.value)}
+                  value={field.value ? field.value : POSITION_NONE}
                   onValueChange={(value) => {
+                    if (value === POSITION_NONE) {
+                      field.onChange(undefined);
+                      return;
+                    }
                     field.onChange(value);
                     const position = positions?.find((p) => p.id === value);
                     if (position) {
@@ -383,6 +398,7 @@ export function EmployeeForm({
                     )}
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value={POSITION_NONE}>None</SelectItem>
                     {!loadingPositions && positions?.length === 0 && (
                       <SelectItem value="__no_positions__" disabled>
                         No positions found for this department — add one in Settings →

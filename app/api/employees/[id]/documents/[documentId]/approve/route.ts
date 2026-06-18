@@ -4,14 +4,28 @@ import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiSuccess, apiError } from "@/lib/api-response";
 import { deleteSignedDocumentByUrl } from "@/lib/documents/storage";
-import { onboardingAssignmentKey } from "@/lib/documents/assignment-keys";
+import {
+  onboardingAssignmentKey,
+  offboardingAssignmentKey,
+} from "@/lib/documents/assignment-keys";
 import { canGenerateHrDocuments } from "@/lib/individual-settings/auth";
 import { logIndividualSettingsAudit } from "@/lib/individual-settings/audit";
 
 type RouteParams = { params: Promise<{ id: string; documentId: string }> };
 
+function assignmentKey(
+  documentId: string,
+  employeeId: string,
+  isOffboarding: boolean
+) {
+  return isOffboarding
+    ? offboardingAssignmentKey(documentId, employeeId)
+    : onboardingAssignmentKey(documentId, employeeId);
+}
+
 const approveSchema = z.object({
   approved: z.boolean(),
+  isOffboarding: z.boolean().optional().default(false),
 });
 
 /** HR manually approves or removes approval for an employee document */
@@ -44,12 +58,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return apiError("Validation failed", parsed.error.errors[0]?.message);
     }
 
+    const isOffboarding = parsed.data.isOffboarding;
+    const key = assignmentKey(documentId, employeeId, isOffboarding);
+
     // ── Remove approval: clear all signing fields → status becomes "not_started" ──
     if (!parsed.data.approved) {
       const existing = await prisma.documentAssignment.findUnique({
-        where: {
-          sopId_employeeId_isOffboarding: onboardingAssignmentKey(documentId, employeeId),
-        },
+        where: { sopId_employeeId_isOffboarding: key },
       });
 
       if (!existing) {
@@ -105,29 +120,33 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // ── Grant approval ──
     const now = new Date();
     const existing = await prisma.documentAssignment.findUnique({
-      where: {
-        sopId_employeeId_isOffboarding: onboardingAssignmentKey(documentId, employeeId),
-      },
-      select: { sentAt: true },
+      where: { sopId_employeeId_isOffboarding: key },
+      select: { sentAt: true, offboardingSentAt: true },
     });
 
     const assignment = await prisma.documentAssignment.upsert({
-      where: {
-        sopId_employeeId_isOffboarding: onboardingAssignmentKey(documentId, employeeId),
-      },
+      where: { sopId_employeeId_isOffboarding: key },
       create: {
         sopId: documentId,
         employeeId,
         assignedById: session.id,
-        isOffboarding: false,
-        sentAt: now,
+        isOffboarding,
+        ...(isOffboarding
+          ? { offboardingSentAt: now }
+          : { sentAt: now }),
         hrApprovedAt: now,
         hrApprovedBy: session.id,
       },
       update: {
         hrApprovedAt: now,
         hrApprovedBy: session.id,
-        ...(existing?.sentAt ? {} : { sentAt: now }),
+        ...(isOffboarding
+          ? existing?.offboardingSentAt
+            ? {}
+            : { offboardingSentAt: now }
+          : existing?.sentAt
+            ? {}
+            : { sentAt: now }),
       },
     });
 

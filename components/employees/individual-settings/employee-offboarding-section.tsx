@@ -2,14 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { format, parseISO } from "date-fns";
-import { Download, Plus, Send } from "lucide-react";
-import type { DocumentType } from "@prisma/client";
-import { DocumentTypeBadge } from "@/components/documents/document-type-badge";
+import { Plus, Send } from "lucide-react";
 import { AssignOffboardingDocumentModal } from "@/components/employees/assign-offboarding-document-modal";
 import { SendOffboardingSignatureDialog } from "@/components/employees/send-offboarding-signature-dialog";
+import { EmployeeDocumentRow } from "@/components/employees/individual-settings/employee-document-row";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { EmployeeDocumentStatusItem } from "@/lib/individual-settings/constants";
@@ -55,6 +52,10 @@ export function EmployeeOffboardingSection({
     },
   });
 
+  const invalidateDocs = () => {
+    queryClient.invalidateQueries({ queryKey: ["employee-offboarding-docs", employeeId] });
+  };
+
   const lastDayMutation = useMutation({
     mutationFn: async (lastDayDate: string) => {
       const res = await fetch(`/api/employees/${employeeId}/offboarding-instance`, {
@@ -66,7 +67,7 @@ export function EmployeeOffboardingSection({
       if (!res.ok) throw new Error(json.message ?? json.error ?? "Failed to save last day");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["employee-offboarding-docs", employeeId] });
+      invalidateDocs();
       onToast?.("Last day saved");
     },
     onError: (e: Error) => onToast?.(e.message),
@@ -174,13 +175,23 @@ export function EmployeeOffboardingSection({
       ) : (
         <div className="space-y-6">
           {autoAssigned.length > 0 && (
-            <DocGroup label="Auto-assigned" badgeClass="bg-blue-100 text-blue-800" docs={autoAssigned} />
+            <DocGroup
+              label="Auto-assigned"
+              badgeClass="bg-blue-100 text-blue-800"
+              docs={autoAssigned}
+              employeeId={employeeId}
+              onMutationSuccess={invalidateDocs}
+              onToast={onToast}
+            />
           )}
           {manuallyAssigned.length > 0 && (
             <DocGroup
               label="Manually assigned"
               badgeClass="bg-green-100 text-green-800"
               docs={manuallyAssigned}
+              employeeId={employeeId}
+              onMutationSuccess={invalidateDocs}
+              onToast={onToast}
             />
           )}
         </div>
@@ -193,10 +204,16 @@ function DocGroup({
   label,
   badgeClass,
   docs,
+  employeeId,
+  onMutationSuccess,
+  onToast,
 }: {
   label: string;
   badgeClass: string;
   docs: EmployeeDocumentStatusItem[];
+  employeeId: string;
+  onMutationSuccess: () => void;
+  onToast?: (message: string) => void;
 }) {
   return (
     <div className="space-y-2">
@@ -213,30 +230,15 @@ function DocGroup({
       </div>
       <div className="space-y-2">
         {docs.map((doc) => (
-          <Card key={doc.id}>
-            <CardContent className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4">
-              <div className="flex items-center gap-3 min-w-0">
-                <DocumentTypeBadge type={doc.documentType as DocumentType} />
-                <div>
-                  <p className="font-semibold truncate">{doc.title}</p>
-                  <p className="text-xs text-muted-foreground">v{doc.version}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" asChild>
-                  <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
-                    <Download className="h-4 w-4 mr-1" />
-                    View
-                  </a>
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  {doc.assignmentSentAt
-                    ? `Sent ${format(parseISO(doc.assignmentSentAt), "MMM d, yyyy")}`
-                    : "Not sent"}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+          <EmployeeDocumentRow
+            key={doc.id}
+            doc={doc}
+            mode="admin"
+            employeeId={employeeId}
+            assignmentContext="offboarding"
+            onMutationSuccess={onMutationSuccess}
+            onToast={onToast}
+          />
         ))}
       </div>
     </div>
