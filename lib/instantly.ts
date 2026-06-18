@@ -2,6 +2,35 @@ export type SendEmailResult =
   | { ok: true }
   | { ok: false; reason: string };
 
+function getInstantlySenderAccount(): string | null {
+  return process.env.INSTANTLY_EACCOUNT ?? process.env.INSTANTLY_FROM_EMAIL ?? null;
+}
+
+function parseInstantlyError(status: number, errorBody: string): string {
+  let detail = "";
+  try {
+    const json = JSON.parse(errorBody) as { message?: string; error?: string };
+    detail = json.message ?? json.error ?? "";
+  } catch {
+    detail = errorBody.trim();
+  }
+
+  if (status === 401) {
+    return "Instantly API key is invalid. Generate an API v2 key in Instantly → Settings → Integrations → API.";
+  }
+  if (status === 404 && detail.toLowerCase().includes("email account not found")) {
+    const account = getInstantlySenderAccount() ?? "(not set)";
+    return `Sender ${account} is not connected in Instantly. Set INSTANTLY_FROM_EMAIL to a connected inbox (e.g. team@bazaarprinting.co).`;
+  }
+  if (status === 402) {
+    return "Instantly workspace does not have an active paid plan.";
+  }
+
+  return detail
+    ? `Email provider rejected the request (${status}): ${detail}`
+    : `Email provider rejected the request (${status}). Check Instantly API key and sender settings.`;
+}
+
 /** Send a transactional email via Instantly API */
 export async function sendEmail(
   to: string,
@@ -19,8 +48,7 @@ export async function sendEmailDetailed(
   htmlBody: string
 ): Promise<SendEmailResult> {
   const apiKey = process.env.INSTANTLY_API_KEY;
-  const fromEmail = process.env.INSTANTLY_FROM_EMAIL ?? "hr@bazaarprinting.com";
-  const fromName = process.env.INSTANTLY_FROM_NAME ?? "Bazaar Printing HR";
+  const eaccount = getInstantlySenderAccount();
 
   if (!apiKey) {
     console.warn("Instantly API key not configured; email skipped");
@@ -31,19 +59,26 @@ export async function sendEmailDetailed(
     };
   }
 
+  if (!eaccount) {
+    return {
+      ok: false,
+      reason:
+        "Email sender is not configured. Set INSTANTLY_FROM_EMAIL to a connected Instantly inbox.",
+    };
+  }
+
   try {
-    const response = await fetch("https://api.instantly.ai/api/v1/unibox/emails/send", {
+    const response = await fetch("https://api.instantly.ai/api/v2/emails/test", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        to,
-        from: fromEmail,
-        from_name: fromName,
+        eaccount,
+        to_address_email_list: to,
         subject,
-        body: htmlBody,
+        body: { html: htmlBody },
       }),
     });
 
@@ -53,10 +88,7 @@ export async function sendEmailDetailed(
 
     const errorBody = await response.text().catch(() => "");
     console.error("Instantly email failed:", response.status, errorBody);
-    return {
-      ok: false,
-      reason: `Email provider rejected the request (${response.status}). Check Instantly API key and sender settings.`,
-    };
+    return { ok: false, reason: parseInstantlyError(response.status, errorBody) };
   } catch (error) {
     console.error("Instantly email error:", error);
     return { ok: false, reason: "Email provider request failed. Try again later." };
