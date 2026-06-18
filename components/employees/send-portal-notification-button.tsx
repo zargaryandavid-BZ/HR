@@ -65,6 +65,7 @@ export function SendPortalNotificationButton({
         employeeName,
         topicId,
         customMessage,
+        appBaseUrl: typeof window !== "undefined" ? window.location.origin : undefined,
       }),
     [employeeName, topicId, customMessage]
   );

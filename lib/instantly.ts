@@ -1,3 +1,5 @@
+import { getAppUrl } from "@/lib/app-url";
+
 export type SendEmailResult =
   | { ok: true }
   | { ok: false; reason: string };
@@ -101,7 +103,7 @@ export async function sendWelcomeEmail(
   name: string,
   tempPassword: string
 ): Promise<boolean> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = getAppUrl();
   return sendEmail(
     email,
     "Welcome to Bazaar Printing HR",

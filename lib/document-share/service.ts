@@ -9,11 +9,11 @@ import { uploadSignedDocument } from "@/lib/documents/storage";
 import { createInAppNotification } from "@/lib/documents/service";
 import { logIndividualSettingsAudit } from "@/lib/individual-settings/audit";
 
-const LINK_EXPIRY_DAYS = 7;
+import { getAppUrl } from "@/lib/app-url";
 
 /** Build the public document share URL for a token */
 export function buildDocumentShareUrl(token: string): string {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const base = getAppUrl();
   return `${base}/docs/${token}`;
 }
 

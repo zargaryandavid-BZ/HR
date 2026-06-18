@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { Prisma, Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAppUrl } from "@/lib/app-url";
 import { sendWelcomeEmail } from "@/lib/instantly";
 import { sendSms } from "@/lib/twilio";
 import type { EmployeeFormValues } from "@/lib/validations";
@@ -102,7 +103,7 @@ export async function createEmployee(
   await sendWelcomeEmail(input.workEmail, fullName, tempPassword);
 
   if (input.phone) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const appUrl = getAppUrl();
     await sendSms(
       input.phone,
       `Welcome to Bazaar Printing HR! Log in at ${appUrl}/login with ${input.workEmail}. Check your email for your temporary password.`

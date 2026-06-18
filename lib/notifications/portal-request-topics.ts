@@ -1,3 +1,6 @@
+import { getEmployeePortalLoginUrl } from "@/lib/app-url";
+import { buildBrandedEmailHtml } from "@/lib/email/template";
+
 export const PORTAL_REQUEST_TOPIC_IDS = [
   "GENERAL_REVIEW",
   "DOCUMENT_SIGNATURE",
@@ -81,34 +84,36 @@ export function getPortalRequestTopic(topicId: PortalRequestTopicId): PortalRequ
   return topic;
 }
 
-function getPortalLoginUrl(): string {
-  return `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/employee/login`;
-}
-
 /** Build employee-facing messages for a portal review notification */
 export function buildPortalRequestMessages({
   employeeName,
   topicId,
   customMessage,
+  appBaseUrl,
 }: {
   employeeName: string;
   topicId: PortalRequestTopicId;
   customMessage?: string;
+  /** Override for client-side preview; server sends omit this and use getAppUrl() */
+  appBaseUrl?: string;
 }) {
   const topic = getPortalRequestTopic(topicId);
-  const portalUrl = getPortalLoginUrl();
+  const portalUrl = getEmployeePortalLoginUrl(appBaseUrl);
   const note = customMessage?.trim() ?? "";
   const baseMessage = topic.detail;
 
   const inAppMessage = note ? `${baseMessage}\nNote: ${note}` : baseMessage;
 
   const emailSubject = "Action needed — review your employee portal";
-  const noteHtml = note ? `<p><strong>Note:</strong> ${escapeHtml(note)}</p>` : "";
-  const emailHtml = `<p>Hi ${escapeHtml(employeeName)},</p>
-<p>${escapeHtml(baseMessage)}</p>
-${noteHtml}
-<p><a href="${portalUrl}">Log in to your employee portal</a></p>
-<p>Sign in with your registered phone number.</p>`;
+  const emailHtml = buildBrandedEmailHtml({
+    preheader: baseMessage,
+    greeting: employeeName,
+    bodyHtml: `<p style="margin:0;">${escapeHtml(baseMessage)}</p>`,
+    note: note || undefined,
+    ctaLabel: "Log in to Employee Portal",
+    ctaUrl: portalUrl,
+    footerNote: "Sign in with your registered phone number.",
+  });
 
   const smsNote = note ? ` Note: ${note}.` : "";
   const smsBody = `Hi ${employeeName}, ${baseMessage}${smsNote} Log in: ${portalUrl}`;

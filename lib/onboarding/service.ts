@@ -7,9 +7,11 @@ import { sendSms } from "@/lib/twilio";
 import { formatEmployeeName } from "@/lib/utils";
 import type { DocumentSignStepConfig } from "@/lib/onboarding/types";
 
+import { getAppUrl } from "@/lib/app-url";
+
 /** Build the employee-facing onboarding portal URL */
 export function getOnboardingPortalUrl(instanceId: string): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const appUrl = getAppUrl();
   return `${appUrl}/employee/onboarding/${instanceId}`;
 }
 
