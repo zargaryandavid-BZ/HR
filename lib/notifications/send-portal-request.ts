@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { sendEmail } from "@/lib/instantly";
+import { sendEmailDetailed } from "@/lib/instantly";
 import { sendSms } from "@/lib/twilio";
 import { createEmployeeNotification } from "@/lib/notifications";
 import { formatEmployeeName } from "@/lib/utils";
@@ -80,13 +80,13 @@ export async function sendPortalReviewNotification(
   sentChannels.push("in_app");
 
   if (input.channels.email && emailAddress) {
-    const emailSent = await sendEmail(
+    const emailResult = await sendEmailDetailed(
       emailAddress,
       messages.emailSubject,
       messages.emailHtml
     );
-    if (!emailSent) {
-      throw new Error("Failed to send email notification");
+    if (!emailResult.ok) {
+      throw new Error(emailResult.reason);
     }
     sentChannels.push("email");
   }
