@@ -4,8 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { apiSuccess, apiError } from "@/lib/api-response";
 import { employeeLeaveBalancesSchema } from "@/lib/validations";
 import { HOURS_PER_WORK_DAY } from "@/lib/accrual/constants";
-import { hoursToAllowanceDays } from "@/lib/accrual";
 import { getRemainingAccruedHours } from "@/lib/accrual/leave-validation";
+import { syncAccrualBalancesFromHoursWorked } from "@/lib/accrual/sync-balance";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -38,6 +38,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!employee) {
       return apiError("Not found", "Employee not found", 404);
     }
+
+    await syncAccrualBalancesFromHoursWorked(id);
 
     const [leaveTypes, balances] = await Promise.all([
       prisma.leaveType.findMany({ orderBy: { name: "asc" } }),
@@ -126,40 +128,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
           throw new Error(`Unknown leave type: ${item.leaveTypeId}`);
         }
 
-        const accrued = isAccruedLeaveType(leaveType);
-        const adjustmentReason = item.reason?.trim() || "Updated from employee profile";
-
-        if (accrued) {
-          if (item.balanceHours == null) {
-            throw new Error(`Balance hours required for ${leaveType.slug ?? "accrued"} leave`);
-          }
-          const allowance = hoursToAllowanceDays(item.balanceHours);
-          return prisma.leaveBalance.upsert({
-            where: {
-              employeeId_leaveTypeId_year: {
-                employeeId: id,
-                leaveTypeId: item.leaveTypeId,
-                year,
-              },
-            },
-            create: {
-              employeeId: id,
-              leaveTypeId: item.leaveTypeId,
-              year,
-              allowance,
-              balanceHours: item.balanceHours,
-              adjustedById: session.id,
-              adjustmentReason,
-            },
-            update: {
-              allowance,
-              balanceHours: item.balanceHours,
-              adjustedById: session.id,
-              adjustmentReason,
-            },
-          });
+        if (isAccruedLeaveType(leaveType)) {
+          throw new Error(
+            `${leaveType.slug ?? "Accrued"} leave is calculated automatically and cannot be edited here`
+          );
         }
 
+        const adjustmentReason = item.reason?.trim() || "Updated from employee profile";
         const allowance = item.allowance ?? leaveType.defaultDays;
         return prisma.leaveBalance.upsert({
           where: {
@@ -188,7 +163,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     return Response.json(apiSuccess(null, "Leave balances saved"));
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith("Balance hours")) {
+    if (error instanceof Error && error.message.includes("calculated automatically")) {
       return apiError("Validation failed", error.message);
     }
     if (error instanceof Error && error.message.startsWith("Unknown leave type")) {

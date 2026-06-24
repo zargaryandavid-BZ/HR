@@ -408,7 +408,6 @@ export default function EmployeeDetailPage({ params }: PageProps) {
         <TabsContent value="leave" className="mt-4 space-y-4">
           <EmployeeLeavePanel
             employeeId={id}
-            onSuccess={handleSaveSuccess}
             onAddLeave={() => setAddLeaveOpen(true)}
           />
           <EmployeeLeaveHistory employeeId={id} />

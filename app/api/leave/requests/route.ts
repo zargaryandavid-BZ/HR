@@ -4,6 +4,8 @@ import { apiSuccess, apiError, getPaginationParams } from "@/lib/api-response";
 import { requireRole } from "@/lib/auth";
 import { logLeaveAudit, notifyLeaveStatusChange } from "@/lib/leave/service";
 import { resolveLeaveRequestDuration } from "@/lib/leave/resolve-request-duration";
+import { applyLeaveUsageToBalance } from "@/lib/leave/balance-usage";
+import { syncAccrualBalancesFromHoursWorked } from "@/lib/accrual/sync-balance";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -183,6 +185,8 @@ export async function POST(req: Request) {
     const leaveType = await prisma.leaveType.findUnique({ where: { id: leaveTypeId } });
     if (!leaveType) return apiError("Not found", "Leave type not found", 404);
 
+    await syncAccrualBalancesFromHoursWorked(employeeId);
+
     const currentYear = duration.start.getFullYear();
     const { workingDays } = duration;
 
@@ -203,19 +207,17 @@ export async function POST(req: Request) {
         },
       });
 
-      if (autoApprove) {
-        await tx.leaveBalance.upsert({
-          where: { employeeId_leaveTypeId_year: { employeeId, leaveTypeId, year: currentYear } },
-          create: { employeeId, leaveTypeId, year: currentYear, allowance: leaveType.defaultDays, usedDays: workingDays },
-          update: { usedDays: { increment: workingDays } },
-        });
-      } else {
-        await tx.leaveBalance.upsert({
-          where: { employeeId_leaveTypeId_year: { employeeId, leaveTypeId, year: currentYear } },
-          create: { employeeId, leaveTypeId, year: currentYear, allowance: leaveType.defaultDays, pendingDays: workingDays },
-          update: { pendingDays: { increment: workingDays } },
-        });
-      }
+      await applyLeaveUsageToBalance(
+        {
+          employeeId,
+          leaveTypeId,
+          year: currentYear,
+          workingDays,
+          autoApprove,
+          leaveType,
+        },
+        tx
+      );
 
       return req;
     });
