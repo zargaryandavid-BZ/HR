@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
       coords = body?.coords;
     } catch { /* body may be empty */ }
     const clientIp = extractClientIp(req.headers);
-    const locationCheck = validateClockInLocation(clientIp, coords);
+    const locationCheck = await validateClockInLocation(clientIp, coords);
     if (!locationCheck.allowed) {
       return apiError("Location restricted", locationCheck.reason ?? "Action not allowed from this location.", 403);
     }

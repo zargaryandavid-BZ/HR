@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -107,6 +108,19 @@ export default function CompanySettingsPage() {
                   <SelectItem value="CASH_OUT">Cash Out</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="location-requirement-toggle">Require Location for Clock In/Out</Label>
+                <p className="text-xs text-muted-foreground">
+                  When enabled, employees must be in an approved location zone to clock in, out, and manage breaks.
+                </p>
+              </div>
+              <Switch
+                id="location-requirement-toggle"
+                checked={watch("locationRequirementEnabled") ?? settings?.locationRequirementEnabled ?? true}
+                onCheckedChange={(checked) => setValue("locationRequirementEnabled", checked)}
+              />
             </div>
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? "Saving..." : "Save Settings"}

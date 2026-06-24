@@ -21,6 +21,10 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     await requireRole(["HR_ADMIN", "SUPER_ADMIN"]);
+    const existingCount = await prisma.locationZone.count();
+    if (existingCount >= 5) {
+      return apiError("Validation failed", "You can add up to 5 office locations.", 400);
+    }
 
     const body = await request.json();
     const parsed = locationZoneSchema.safeParse(body);

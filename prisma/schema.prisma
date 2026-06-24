@@ -855,6 +855,7 @@ model CompanySettings {
   coverageWarningPercent  Float                 @default(30)
   lateThresholdMinutes    Int                   @default(15)
   yearEndRolloverPolicy   YearEndRolloverPolicy @default(CARRY_OVER)
+  locationRequirementEnabled Boolean            @default(true)
   updatedById             String?
   updatedBy                 User?                 @relation("UpdatedByUser", fields: [updatedById], references: [id])
   updatedAt               DateTime              @updatedAt

@@ -419,7 +419,10 @@ export const companySettingsSchema = z.object({
   coverageWarningPercent: z.coerce.number().min(0).max(100),
   lateThresholdMinutes: z.coerce.number().min(0),
   yearEndRolloverPolicy: z.enum(["CARRY_OVER", "EXPIRE", "CASH_OUT"]),
+  locationRequirementEnabled: z.boolean(),
 });
+
+export const companySettingsPatchSchema = companySettingsSchema.partial();
 
 export const WORKING_DAYS = [
   { value: 1, label: "Mon" },

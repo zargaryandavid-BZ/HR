@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +20,10 @@ type LocationZone = {
   lng: number;
   radiusMeters: number;
   isActive: boolean;
+};
+
+type CompanySettings = {
+  locationRequirementEnabled: boolean;
 };
 
 /** Geofence location zone management with map pin coordinates */
@@ -39,6 +44,16 @@ export default function LocationZonesPage() {
       return json.data as LocationZone[];
     },
   });
+  const { data: companySettings } = useQuery({
+    queryKey: ["company-settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/company");
+      const json = await res.json();
+      return json.data as CompanySettings;
+    },
+  });
+  const zoneCount = zones?.length ?? 0;
+  const canAddZone = zoneCount < 5;
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -70,6 +85,22 @@ export default function LocationZonesPage() {
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["location-zones"] }),
   });
+  const toggleRequirementMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const res = await fetch("/api/settings/company", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locationRequirementEnabled: enabled }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.message ?? "Failed to update location requirement");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["company-settings"] });
+    },
+  });
 
   /** Use browser geolocation to set zone center coordinates */
   function useCurrentLocation() {
@@ -84,14 +115,38 @@ export default function LocationZonesPage() {
     <div>
       <PageHeader
         title="Location Zones"
-        description="Configure geofence zones for mobile clock-in"
+        description="Configure office locations used for employee clock in/out geofencing (2 to 5 supported)."
         actions={
-          <Button onClick={() => setShowForm(true)}>
+          <Button onClick={() => setShowForm(true)} disabled={!canAddZone}>
             <Plus className="h-4 w-4 mr-2" />
             Add Zone
           </Button>
         }
       />
+      <Card className="mb-4">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="location-requirement-toggle">Require location for clock in/out</Label>
+              <p className="text-xs text-muted-foreground">
+                Disable to allow employee clock in/out and breaks from any location.
+              </p>
+            </div>
+            <Switch
+              id="location-requirement-toggle"
+              checked={companySettings?.locationRequirementEnabled ?? true}
+              onCheckedChange={(checked) => toggleRequirementMutation.mutate(checked)}
+              disabled={toggleRequirementMutation.isPending}
+            />
+          </div>
+        </CardContent>
+      </Card>
+      <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
+        <span>Configured locations: {zoneCount}/5</span>
+        {!canAddZone && (
+          <Badge variant="secondary">Maximum reached</Badge>
+        )}
+      </div>
 
       {showForm && (
         <Card className="mb-6">
@@ -129,7 +184,7 @@ export default function LocationZonesPage() {
             <div className="flex gap-2">
               <Button
                 onClick={() => createMutation.mutate()}
-                disabled={!name || !lat || !lng}
+                disabled={!name || !lat || !lng || !canAddZone}
               >
                 Save
               </Button>
