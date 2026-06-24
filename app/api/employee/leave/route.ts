@@ -137,6 +137,7 @@ export async function GET() {
           startDate: toDateOnlyString(r.startDate),
           endDate: toDateOnlyString(r.endDate),
           workingDays: r.workingDays,
+          workingHours: r.workingHours,
           status: r.status,
           notes: r.notes,
           submittedAt: r.submittedAt.toISOString(),

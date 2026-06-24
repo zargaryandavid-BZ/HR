@@ -231,7 +231,8 @@ export function buildEmployeeSectionPatchSchema(sections: EmployeeFormSection[])
 
 export const employeeLeaveBalanceItemSchema = z.object({
   leaveTypeId: z.string().min(1),
-  allowance: z.coerce.number().min(0),
+  allowance: z.coerce.number().min(0).optional(),
+  balanceHours: z.coerce.number().min(0).optional(),
   reason: z.string().optional(),
 });
 

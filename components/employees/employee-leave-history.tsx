@@ -1,6 +1,7 @@
 "use client";
 
 import { formatStoredDateRange } from "@/lib/dates";
+import { formatLeaveRequestAmount } from "@/lib/leave/duration";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +14,7 @@ type LeaveRequestRow = {
   startDate: string;
   endDate: string;
   workingDays: number;
+  workingHours?: number | null;
   status: string;
   notes: string | null;
   submittedAt: string;
@@ -62,7 +64,7 @@ export function EmployeeLeaveHistory({ employeeId }: EmployeeLeaveHistoryProps) 
                 <tr className="border-b text-left text-muted-foreground">
                   <th className="pb-2 pr-4 font-medium">Type</th>
                   <th className="pb-2 pr-4 font-medium">Dates</th>
-                  <th className="pb-2 pr-4 font-medium">Days</th>
+                  <th className="pb-2 pr-4 font-medium">Duration</th>
                   <th className="pb-2 pr-4 font-medium">Status</th>
                   <th className="pb-2 font-medium">Notes</th>
                 </tr>
@@ -74,7 +76,9 @@ export function EmployeeLeaveHistory({ employeeId }: EmployeeLeaveHistoryProps) 
                     <td className="py-3 pr-4 whitespace-nowrap">
                       {formatStoredDateRange(row.startDate.slice(0, 10), row.endDate.slice(0, 10))}
                     </td>
-                    <td className="py-3 pr-4">{row.workingDays}</td>
+                    <td className="py-3 pr-4">
+                      {formatLeaveRequestAmount(row.workingDays, row.workingHours)}
+                    </td>
                     <td className="py-3 pr-4">
                       <Badge variant="success">Approved</Badge>
                     </td>

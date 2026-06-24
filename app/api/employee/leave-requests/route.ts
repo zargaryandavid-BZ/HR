@@ -23,6 +23,7 @@ export async function GET() {
           startDate: r.startDate.toISOString().split("T")[0],
           endDate: r.endDate.toISOString().split("T")[0],
           days: r.workingDays,
+          hours: r.workingHours,
           status: r.status,
           notes: r.notes,
           rejectionReason: r.reviewComment,

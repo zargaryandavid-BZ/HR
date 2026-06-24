@@ -2,8 +2,8 @@ import { parseFormDate } from "@/lib/dates";
 import { prisma } from "@/lib/prisma";
 import { apiSuccess, apiError, getPaginationParams } from "@/lib/api-response";
 import { requireRole } from "@/lib/auth";
-import { calculateWorkingDays } from "@/lib/leave/working-days";
 import { logLeaveAudit, notifyLeaveStatusChange } from "@/lib/leave/service";
+import { resolveLeaveRequestDuration } from "@/lib/leave/resolve-request-duration";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -13,6 +13,8 @@ const createSchema = z.object({
   endDate: z.string(),
   note: z.string().optional(),
   autoApprove: z.boolean().default(true),
+  requestMode: z.enum(["days", "hours"]).optional(),
+  durationHours: z.coerce.number().positive().max(8).optional(),
 });
 
 /** Returns all leave requests with employee + leave type joined, with filtering */
@@ -124,6 +126,7 @@ export async function GET(req: Request) {
         startDate: r.startDate.toISOString().split("T")[0],
         endDate: r.endDate.toISOString().split("T")[0],
         workingDays: r.workingDays,
+        workingHours: r.workingHours,
         status: r.status,
         note: r.notes,
         reviewNote: r.reviewComment,
@@ -156,41 +159,42 @@ export async function POST(req: Request) {
       return apiError("Validation error", parsed.error.errors[0]?.message, 400);
     }
 
-    const { employeeId, leaveTypeId, startDate, endDate, note, autoApprove } = parsed.data;
-
-    const start = parseFormDate(startDate);
-    const end = parseFormDate(endDate);
-
-    if (end < start) {
-      return apiError("Validation error", "End date must be on or after start date", 400);
-    }
+    const { employeeId, leaveTypeId, startDate, endDate, note, autoApprove, requestMode, durationHours } =
+      parsed.data;
 
     const holidays = await prisma.holiday.findMany({
       where: {
-        date: { gte: start, lte: end },
+        date: {
+          gte: parseFormDate(startDate),
+          lte: parseFormDate(endDate),
+        },
         OR: [{ isCompanyWide: true }, { employeeId }],
       },
     });
 
-    const workingDays = calculateWorkingDays(start, end, holidays.map((h) => h.date));
-
-    if (workingDays <= 0) {
-      return apiError("Validation error", "Date range contains no working days", 400);
+    const duration = resolveLeaveRequestDuration(
+      { startDate, endDate, requestMode, durationHours },
+      holidays.map((h) => h.date)
+    );
+    if ("error" in duration) {
+      return apiError("Validation error", duration.error, 400);
     }
 
     const leaveType = await prisma.leaveType.findUnique({ where: { id: leaveTypeId } });
     if (!leaveType) return apiError("Not found", "Leave type not found", 404);
 
-    const currentYear = start.getFullYear();
+    const currentYear = duration.start.getFullYear();
+    const { workingDays } = duration;
 
     const request = await prisma.$transaction(async (tx) => {
       const req = await tx.leaveRequest.create({
         data: {
           employeeId,
           leaveTypeId,
-          startDate: start,
-          endDate: end,
-          workingDays,
+          startDate: duration.start,
+          endDate: duration.end,
+          workingDays: duration.workingDays,
+          workingHours: duration.workingHours,
           notes: note,
           status: autoApprove ? "APPROVED" : "PENDING",
           reviewedById: autoApprove ? session.id : undefined,
@@ -227,8 +231,8 @@ export async function POST(req: Request) {
       await notifyLeaveStatusChange({
         employeeId,
         leaveTypeName: leaveType.name,
-        startDate: start,
-        endDate: end,
+        startDate: duration.start,
+        endDate: duration.end,
         status: "APPROVED",
         hrAdded: true,
       });

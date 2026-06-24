@@ -460,6 +460,7 @@ model LeaveRequest {
   startDate     DateTime
   endDate       DateTime
   workingDays   Float
+  workingHours  Float?
   status        LeaveRequestStatus @default(PENDING)
   notes         String?
   reviewedById  String?

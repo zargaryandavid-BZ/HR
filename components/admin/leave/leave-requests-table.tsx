@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { formatStoredDateRange, formatDisplayDate } from "@/lib/dates";
 import { cn, formatLeaveBalanceValue } from "@/lib/utils";
+import { formatLeaveRequestAmount } from "@/lib/leave/duration";
 import { Check, X, Undo2, ChevronUp, ChevronDown } from "lucide-react";
 import { EmptyState } from "@/components/shared/page-header";
 import { toast } from "sonner";
@@ -28,6 +29,7 @@ type LeaveRequest = {
   startDate: string;
   endDate: string;
   workingDays: number;
+  workingHours?: number | null;
   status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
   note: string | null;
   reviewNote: string | null;
@@ -287,7 +289,7 @@ export function LeaveRequestsTable({
         <span>Manager</span>
         <span>Leave Type</span>
         <span>Date Range</span>
-        <ColHeader label="Days" col="workingDays" />
+        <ColHeader label="Duration" col="workingDays" />
         <span>Balance</span>
         <ColHeader label="Status" col="status" />
         <ColHeader label="Submitted" col="createdAt" />
@@ -348,8 +350,9 @@ export function LeaveRequestsTable({
 
             {/* Days */}
             <div>
-              <span className="text-sm font-bold">{req.workingDays}</span>
-              <span className="text-xs text-muted-foreground"> {req.workingDays === 1 ? "day" : "days"}</span>
+              <span className="text-sm font-bold">
+                {formatLeaveRequestAmount(req.workingDays, req.workingHours)}
+              </span>
             </div>
 
             {/* Balance */}

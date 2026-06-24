@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmployeeForm } from "@/components/employees/employee-form";
 import { EmployeeLeavePanel } from "@/components/employees/employee-leave-panel";
 import { EmployeeLeaveHistory } from "@/components/employees/employee-leave-history";
+import { AddLeaveModal } from "@/components/admin/leave/add-leave-modal";
 import { CompensationForm } from "@/components/employees/compensation-form";
 import { ToastBanner } from "@/components/shared/toast-banner";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +57,7 @@ export default function EmployeeDetailPage({ params }: PageProps) {
   const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
   const [toastVariant, setToastVariant] = useState<"success" | "error">("success");
+  const [addLeaveOpen, setAddLeaveOpen] = useState(false);
   const { role: viewerRole } = useCurrentUser();
 
   const handleDeleteEmployee = async () => {
@@ -407,8 +409,19 @@ export default function EmployeeDetailPage({ params }: PageProps) {
           <EmployeeLeavePanel
             employeeId={id}
             onSuccess={handleSaveSuccess}
+            onAddLeave={() => setAddLeaveOpen(true)}
           />
           <EmployeeLeaveHistory employeeId={id} />
+          <AddLeaveModal
+            open={addLeaveOpen}
+            onOpenChange={setAddLeaveOpen}
+            defaultEmployeeId={id}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ["employee-leave-history", id] });
+              queryClient.invalidateQueries({ queryKey: ["employee-leave-balances", id] });
+              handleSaveSuccess("Leave request created");
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="activity" className="mt-4">

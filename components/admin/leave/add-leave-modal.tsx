@@ -20,7 +20,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { cn, formatLeaveBalanceValue } from "@/lib/utils";
+import { cn, formatLeaveBalanceHours, formatLeaveBalanceValue } from "@/lib/utils";
+import { HOURS_PER_WORK_DAY } from "@/lib/accrual/constants";
+import { formatLeaveRequestAmount, hoursToWorkingDays } from "@/lib/leave/duration";
+import type { LeaveRequestMode } from "@/lib/leave/resolve-request-duration";
 
 const schema = z.object({
   employeeId: z.string().min(1, "Employee is required"),
@@ -47,25 +50,58 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  defaultEmployeeId?: string;
 };
 
 /** Modal for HR to manually add a leave request on behalf of an employee */
-export function AddLeaveModal({ open, onOpenChange, onSuccess }: Props) {
+export function AddLeaveModal({ open, onOpenChange, onSuccess, defaultEmployeeId }: Props) {
   const queryClient = useQueryClient();
   const [employeeSearch, setEmployeeSearch] = useState("");
+  const [requestMode, setRequestMode] = useState<LeaveRequestMode>("days");
+  const [durationHours, setDurationHours] = useState("");
   const [workingDays, setWorkingDays] = useState<number | null>(null);
   const [balanceInfo, setBalanceInfo] = useState<{ remaining: number; total: number } | null>(null);
   const [calculatingDays, setCalculatingDays] = useState(false);
 
   const { control, register, handleSubmit, watch, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema) as never,
-    defaultValues: { autoApprove: true, employeeId: "", leaveTypeId: "", startDate: "", endDate: "" },
+    defaultValues: {
+      autoApprove: true,
+      employeeId: defaultEmployeeId ?? "",
+      leaveTypeId: "",
+      startDate: "",
+      endDate: "",
+    },
   });
+
+  useEffect(() => {
+    if (open && defaultEmployeeId) {
+      reset({
+        autoApprove: true,
+        employeeId: defaultEmployeeId,
+        leaveTypeId: "",
+        startDate: "",
+        endDate: "",
+      });
+    }
+  }, [open, defaultEmployeeId, reset]);
 
   const watchedEmployeeId = watch("employeeId");
   const watchedLeaveTypeId = watch("leaveTypeId");
   const watchedStart = watch("startDate");
   const watchedEnd = watch("endDate");
+
+  const { data: defaultEmployee } = useQuery({
+    queryKey: ["employee", defaultEmployeeId],
+    queryFn: async () => {
+      const res = await fetch(`/api/employees/${defaultEmployeeId}`);
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? "Failed to load employee");
+      return json.data as Employee;
+    },
+    enabled: !!defaultEmployeeId && open,
+    staleTime: 60_000,
+  });
 
   const { data: employeesData } = useQuery({
     queryKey: ["employees-search", employeeSearch],
@@ -76,7 +112,11 @@ export function AddLeaveModal({ open, onOpenChange, onSuccess }: Props) {
       return (json.data?.employees ?? []) as Employee[];
     },
     staleTime: 30_000,
+    enabled: !defaultEmployeeId,
   });
+
+  const employeeOptions =
+    defaultEmployeeId && defaultEmployee ? [defaultEmployee] : (employeesData ?? []);
 
   const { data: leaveTypesData } = useQuery({
     queryKey: ["leave-types-active"],
@@ -102,14 +142,33 @@ export function AddLeaveModal({ open, onOpenChange, onSuccess }: Props) {
 
   // Calculate working days when dates change
   useEffect(() => {
-    if (!watchedStart || !watchedEnd) { setWorkingDays(null); return; }
+    if (!watchedStart) {
+      setWorkingDays(null);
+      return;
+    }
+
+    if (requestMode === "hours") {
+      const hours = parseFloat(durationHours);
+      if (Number.isNaN(hours) || hours <= 0) {
+        setWorkingDays(null);
+        return;
+      }
+      setWorkingDays(hoursToWorkingDays(hours));
+      return;
+    }
+
+    if (!watchedEnd) {
+      setWorkingDays(null);
+      return;
+    }
     const start = new Date(watchedStart);
     const end = new Date(watchedEnd);
-    if (end < start) { setWorkingDays(0); return; }
+    if (end < start) {
+      setWorkingDays(0);
+      return;
+    }
 
     setCalculatingDays(true);
-    const url = `/api/leave/requests?employeeId=${watchedEmployeeId}&startDate=${watchedStart}&endDate=${watchedEnd}&calculateOnly=true`;
-    // For working day preview, do a lightweight calculation client-side
     let count = 0;
     const curr = new Date(start);
     while (curr <= end) {
@@ -119,7 +178,7 @@ export function AddLeaveModal({ open, onOpenChange, onSuccess }: Props) {
     }
     setWorkingDays(count);
     setCalculatingDays(false);
-  }, [watchedStart, watchedEnd, watchedEmployeeId]);
+  }, [watchedStart, watchedEnd, watchedEmployeeId, requestMode, durationHours]);
 
   // Update balance preview when leave type or employee changes
   useEffect(() => {
@@ -131,17 +190,22 @@ export function AddLeaveModal({ open, onOpenChange, onSuccess }: Props) {
 
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
+      const payload: Record<string, unknown> = {
+        employeeId: data.employeeId,
+        leaveTypeId: data.leaveTypeId,
+        startDate: data.startDate,
+        endDate: requestMode === "hours" ? data.startDate : data.endDate,
+        note: data.note,
+        autoApprove: data.autoApprove,
+        requestMode,
+      };
+      if (requestMode === "hours") {
+        payload.durationHours = parseFloat(durationHours);
+      }
       const res = await fetch("/api/leave/requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          employeeId: data.employeeId,
-          leaveTypeId: data.leaveTypeId,
-          startDate: data.startDate,
-          endDate: data.endDate,
-          note: data.note,
-          autoApprove: data.autoApprove,
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const j = await res.json();
@@ -154,6 +218,8 @@ export function AddLeaveModal({ open, onOpenChange, onSuccess }: Props) {
       queryClient.invalidateQueries({ queryKey: ["leave-requests"] });
       queryClient.invalidateQueries({ queryKey: ["leave-stats"] });
       reset();
+      setRequestMode("days");
+      setDurationHours("");
       setWorkingDays(null);
       setBalanceInfo(null);
       onOpenChange(false);
@@ -161,6 +227,13 @@ export function AddLeaveModal({ open, onOpenChange, onSuccess }: Props) {
     },
     onError: (e) => toast.error((e as Error).message),
   });
+
+  const parsedDurationHours = parseFloat(durationHours);
+  const hasValidHours =
+    requestMode === "hours" &&
+    !Number.isNaN(parsedDurationHours) &&
+    parsedDurationHours > 0 &&
+    parsedDurationHours <= HOURS_PER_WORK_DAY;
 
   const exceedsBalance =
     balanceInfo !== null &&
@@ -183,23 +256,25 @@ export function AddLeaveModal({ open, onOpenChange, onSuccess }: Props) {
           {/* Employee */}
           <div className="space-y-1.5">
             <Label htmlFor="employee-search">Employee</Label>
-            <Input
-              id="employee-search"
-              placeholder="Search by name…"
-              value={employeeSearch}
-              onChange={(e) => setEmployeeSearch(e.target.value)}
-              className="mb-1"
-            />
+            {!defaultEmployeeId && (
+              <Input
+                id="employee-search"
+                placeholder="Search by name…"
+                value={employeeSearch}
+                onChange={(e) => setEmployeeSearch(e.target.value)}
+                className="mb-1"
+              />
+            )}
             <Controller
               name="employeeId"
               control={control}
               render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
+                <Select onValueChange={field.onChange} value={field.value} disabled={!!defaultEmployeeId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select employee" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(employeesData ?? []).map((emp) => (
+                    {(employeeOptions).map((emp) => (
                       <SelectItem key={emp.id} value={emp.id}>
                         <span className="font-medium">{emp.firstName} {emp.lastName}</span>
                         {emp.department && <span className="text-muted-foreground ml-1 text-xs">· {emp.department.name}</span>}
@@ -241,26 +316,98 @@ export function AddLeaveModal({ open, onOpenChange, onSuccess }: Props) {
             {errors.leaveTypeId && <p className="text-xs text-destructive">{errors.leaveTypeId.message}</p>}
           </div>
 
-          {/* Date Range */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="startDate">Start Date</Label>
-              <Input id="startDate" type="date" {...register("startDate")} />
-              {errors.startDate && <p className="text-xs text-destructive">{errors.startDate.message}</p>}
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="endDate">End Date</Label>
-              <Input id="endDate" type="date" {...register("endDate")} />
-              {errors.endDate && <p className="text-xs text-destructive">{errors.endDate.message}</p>}
+          {/* Request type */}
+          <div className="space-y-1.5">
+            <Label>Request type</Label>
+            <div className="flex rounded-md border p-0.5">
+              <button
+                type="button"
+                className={cn(
+                  "flex-1 rounded-sm px-3 py-1.5 text-sm transition-colors",
+                  requestMode === "days"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => setRequestMode("days")}
+              >
+                Full day(s)
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "flex-1 rounded-sm px-3 py-1.5 text-sm transition-colors",
+                  requestMode === "hours"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => {
+                  setRequestMode("hours");
+                  if (watchedStart) reset({ ...watch(), endDate: watchedStart });
+                }}
+              >
+                Hours only
+              </button>
             </div>
           </div>
 
-          {/* Working days preview */}
+          {/* Date Range */}
+          <div className={cn("grid gap-3", requestMode === "days" ? "grid-cols-2" : "grid-cols-1")}>
+            <div className="space-y-1.5">
+              <Label htmlFor="startDate">{requestMode === "hours" ? "Date" : "Start Date"}</Label>
+              <Input
+                id="startDate"
+                type="date"
+                {...register("startDate", {
+                  onChange: (e) => {
+                    if (requestMode === "hours") {
+                      reset({ ...watch(), startDate: e.target.value, endDate: e.target.value });
+                    }
+                  },
+                })}
+              />
+              {errors.startDate && <p className="text-xs text-destructive">{errors.startDate.message}</p>}
+            </div>
+            {requestMode === "days" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="endDate">End Date</Label>
+                <Input id="endDate" type="date" {...register("endDate")} />
+                {errors.endDate && <p className="text-xs text-destructive">{errors.endDate.message}</p>}
+              </div>
+            )}
+          </div>
+
+          {requestMode === "hours" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="durationHours">Hours requested</Label>
+              <Input
+                id="durationHours"
+                type="number"
+                min={0.5}
+                max={HOURS_PER_WORK_DAY}
+                step={0.5}
+                value={durationHours}
+                onChange={(e) => setDurationHours(e.target.value)}
+                placeholder={`e.g. 2 (max ${HOURS_PER_WORK_DAY} hrs)`}
+              />
+            </div>
+          )}
+
+          {/* Duration preview */}
           {workingDays !== null && (
             <div className="rounded-md bg-muted px-3 py-2 text-sm space-y-1">
               <p>
-                {calculatingDays ? "Calculating…" : (
-                  <><span className="font-semibold">{workingDays}</span> working {workingDays === 1 ? "day" : "days"}</>
+                {calculatingDays ? (
+                  "Calculating…"
+                ) : requestMode === "hours" && hasValidHours ? (
+                  <>
+                    <span className="font-semibold">{formatLeaveBalanceHours(parsedDurationHours)}</span>{" "}
+                    hours ({formatLeaveBalanceValue(workingDays)} day equivalent)
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold">{workingDays}</span> working{" "}
+                    {workingDays === 1 ? "day" : "days"}
+                  </>
                 )}
               </p>
               {balanceInfo !== null && afterBalance !== null && (
@@ -307,7 +454,13 @@ export function AddLeaveModal({ open, onOpenChange, onSuccess }: Props) {
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={mutation.isPending}>
+            <Button
+              type="submit"
+              disabled={
+                mutation.isPending ||
+                (requestMode === "hours" ? !hasValidHours || !watchedStart : !watchedEnd)
+              }
+            >
               {mutation.isPending ? "Creating…" : "Create Request"}
             </Button>
           </DialogFooter>

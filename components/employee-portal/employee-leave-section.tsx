@@ -17,6 +17,9 @@ import {
 } from "date-fns";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn, formatLeaveBalanceHours, formatLeaveBalanceValue } from "@/lib/utils";
+import { HOURS_PER_WORK_DAY } from "@/lib/accrual/constants";
+import { formatLeaveRequestAmount, hoursToWorkingDays } from "@/lib/leave/duration";
+import type { LeaveRequestMode } from "@/lib/leave/resolve-request-duration";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -79,6 +82,7 @@ type HistoryRequest = {
   startDate: string;
   endDate: string;
   days: number;
+  hours?: number | null;
   status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
   notes: string | null;
   rejectionReason: string | null;
@@ -135,6 +139,8 @@ export function EmployeeLeaveSection() {
   const [month, setMonth] = useState(new Date());
   const [requestOpen, setRequestOpen] = useState(false);
   const [leaveRequestsOpen, setLeaveRequestsOpen] = useState(false);
+  const [requestMode, setRequestMode] = useState<LeaveRequestMode>("days");
+  const [durationHours, setDurationHours] = useState("");
   const [leaveTypeId, setLeaveTypeId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -164,10 +170,20 @@ export function EmployeeLeaveSection() {
 
   const requestMutation = useMutation({
     mutationFn: async () => {
+      const payload: Record<string, unknown> = {
+        leaveTypeId,
+        startDate,
+        endDate: requestMode === "hours" ? startDate : endDate,
+        notes,
+        requestMode,
+      };
+      if (requestMode === "hours") {
+        payload.durationHours = parseFloat(durationHours);
+      }
       const res = await fetch("/api/employee/leave/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leaveTypeId, startDate, endDate, notes }),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message ?? "Failed to submit request");
@@ -204,6 +220,8 @@ export function EmployeeLeaveSection() {
       setLeaveTypeId("");
       setStartDate("");
       setEndDate("");
+      setRequestMode("days");
+      setDurationHours("");
       setNotes("");
       setError(null);
     },
@@ -291,7 +309,24 @@ export function EmployeeLeaveSection() {
   const endBeforeStart = Boolean(startDate && endDate && endDate < startDate);
   const startIsPast = Boolean(startDate && startDate < todayStr);
 
+  const parsedDurationHours = parseFloat(durationHours);
+  const hasValidHours =
+    requestMode === "hours" &&
+    !Number.isNaN(parsedDurationHours) &&
+    parsedDurationHours > 0 &&
+    parsedDurationHours <= HOURS_PER_WORK_DAY;
+
   const workingDaysPreview = (() => {
+    if (requestMode === "hours") {
+      if (!startDate || !hasValidHours) return 0;
+      try {
+        const day = parseStoredDateLocal(startDate);
+        if (isWeekend(day) || holidayDates.has(toDateKey(day))) return 0;
+        return hoursToWorkingDays(parsedDurationHours);
+      } catch {
+        return 0;
+      }
+    }
     if (!startDate || !endDate || endBeforeStart || startIsPast) return 0;
     try {
       const days = eachDayOfInterval({
@@ -306,14 +341,22 @@ export function EmployeeLeaveSection() {
 
   const selectedBalance = data?.balances.find((b) => b.leaveTypeId === leaveTypeId);
   const isUnpaidLeave = selectedBalance?.isPaid === false;
+  const remainingHours =
+    selectedBalance?.balanceHours ?? (selectedBalance?.remaining ?? 0) * HOURS_PER_WORK_DAY;
   const exceedsBalance =
     selectedBalance != null &&
     selectedBalance.isPaid &&
-    workingDaysPreview > selectedBalance.remaining;
+    (requestMode === "hours"
+      ? hasValidHours && parsedDurationHours > remainingHours
+      : workingDaysPreview > selectedBalance.remaining);
 
   function handleStartDateChange(value: string) {
     setStartDate(value);
-    if (endDate && value && endDate < value) setEndDate("");
+    if (requestMode === "hours") {
+      setEndDate(value);
+    } else if (endDate && value && endDate < value) {
+      setEndDate("");
+    }
     setError(null);
   }
 
@@ -328,15 +371,27 @@ export function EmployeeLeaveSection() {
       setLeaveTypeId("");
       setStartDate("");
       setEndDate("");
+      setRequestMode("days");
+      setDurationHours("");
       setNotes("");
       setError(null);
     }
+  }
+
+  function handleRequestModeChange(mode: LeaveRequestMode) {
+    setRequestMode(mode);
+    if (mode === "hours" && startDate) {
+      setEndDate(startDate);
+    }
+    setError(null);
   }
 
   function openRequestForType(typeId: string) {
     setLeaveTypeId(typeId);
     setStartDate("");
     setEndDate("");
+    setRequestMode("days");
+    setDurationHours("");
     setNotes("");
     setError(null);
     setRequestOpen(true);
@@ -589,7 +644,7 @@ export function EmployeeLeaveSection() {
                   <tr className="border-b text-left text-muted-foreground">
                     <th className="pb-2 pr-4 font-medium">Type</th>
                     <th className="pb-2 pr-4 font-medium">Dates</th>
-                    <th className="pb-2 pr-4 font-medium">Days</th>
+                    <th className="pb-2 pr-4 font-medium">Duration</th>
                     <th className="pb-2 pr-4 font-medium">Status</th>
                     <th className="pb-2 pr-4 font-medium">Submitted</th>
                     <th className="pb-2 font-medium">Action</th>
@@ -603,7 +658,9 @@ export function EmployeeLeaveSection() {
                         <td className="py-3 pr-4 whitespace-nowrap">
                           {formatDateRange(row.startDate, row.endDate)}
                         </td>
-                        <td className="py-3 pr-4">{row.days}</td>
+                        <td className="py-3 pr-4">
+                          {formatLeaveRequestAmount(row.days, row.hours)}
+                        </td>
                         <td className="py-3 pr-4">
                           <StatusChip status={row.status} />
                         </td>
@@ -699,9 +756,38 @@ export function EmployeeLeaveSection() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Request type</Label>
+              <div className="flex rounded-md border p-0.5">
+                <button
+                  type="button"
+                  className={cn(
+                    "flex-1 rounded-sm px-3 py-1.5 text-sm transition-colors",
+                    requestMode === "days"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => handleRequestModeChange("days")}
+                >
+                  Full day(s)
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex-1 rounded-sm px-3 py-1.5 text-sm transition-colors",
+                    requestMode === "hours"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                  onClick={() => handleRequestModeChange("hours")}
+                >
+                  Hours only
+                </button>
+              </div>
+            </div>
+            <div className={cn("grid gap-3", requestMode === "days" ? "grid-cols-2" : "grid-cols-1")}>
               <div className="space-y-2">
-                <Label>Start date</Label>
+                <Label>{requestMode === "hours" ? "Date" : "Start date"}</Label>
                 <input
                   type="date"
                   min={todayStr}
@@ -713,31 +799,60 @@ export function EmployeeLeaveSection() {
                   <p className="text-xs text-destructive">Start date cannot be in the past</p>
                 )}
               </div>
-              <div className="space-y-2">
-                <Label>End date</Label>
-                <input
-                  type="date"
-                  min={startDate || todayStr}
-                  className="w-full rounded-md border bg-white px-3 py-2 text-sm"
-                  value={endDate}
-                  onChange={(e) => handleEndDateChange(e.target.value)}
-                />
-                {endBeforeStart && (
-                  <p className="text-xs text-destructive">End date must be on or after start date</p>
-                )}
-              </div>
+              {requestMode === "days" && (
+                <div className="space-y-2">
+                  <Label>End date</Label>
+                  <input
+                    type="date"
+                    min={startDate || todayStr}
+                    className="w-full rounded-md border bg-white px-3 py-2 text-sm"
+                    value={endDate}
+                    onChange={(e) => handleEndDateChange(e.target.value)}
+                  />
+                  {endBeforeStart && (
+                    <p className="text-xs text-destructive">End date must be on or after start date</p>
+                  )}
+                </div>
+              )}
             </div>
-            {startDate && endDate && !endBeforeStart && !startIsPast && selectedBalance && (
+            {requestMode === "hours" && (
+              <div className="space-y-2">
+                <Label htmlFor="duration-hours">Hours requested</Label>
+                <input
+                  id="duration-hours"
+                  type="number"
+                  min={0.5}
+                  max={HOURS_PER_WORK_DAY}
+                  step={0.5}
+                  className="w-full rounded-md border bg-white px-3 py-2 text-sm"
+                  value={durationHours}
+                  onChange={(e) => {
+                    setDurationHours(e.target.value);
+                    setError(null);
+                  }}
+                  placeholder={`e.g. 2 (max ${HOURS_PER_WORK_DAY} hrs)`}
+                />
+              </div>
+            )}
+            {startDate &&
+              (requestMode === "hours" ? hasValidHours : endDate && !endBeforeStart) &&
+              !startIsPast &&
+              selectedBalance && (
               <div className="space-y-1 text-sm">
                 {workingDaysPreview > 0 ? (
                   <>
                     <p className={exceedsBalance ? "text-[#854F0B]" : "text-muted-foreground"}>
-                      Requesting: {workingDaysPreview} day{workingDaysPreview !== 1 ? "s" : ""}
+                      Requesting:{" "}
+                      {requestMode === "hours"
+                        ? `${formatLeaveBalanceHours(parsedDurationHours)} hrs`
+                        : `${workingDaysPreview} day${workingDaysPreview !== 1 ? "s" : ""}`}
                       {selectedBalance.isPaid && (
                         <>
                           {" "}
                           · {selectedBalance.leaveTypeName} balance:{" "}
-                          {formatLeaveBalanceValue(selectedBalance.remaining)} days remaining
+                          {selectedBalance.isAccrued
+                            ? `${formatLeaveBalanceHours(remainingHours)} hrs remaining`
+                            : `${formatLeaveBalanceValue(selectedBalance.remaining)} days remaining`}
                         </>
                       )}
                     </p>
@@ -761,7 +876,11 @@ export function EmployeeLeaveSection() {
                     )}
                   </>
                 ) : (
-                  <p className="text-destructive">No working days in the selected range</p>
+                  <p className="text-destructive">
+                    {requestMode === "hours"
+                      ? "Selected date is not a working day"
+                      : "No working days in the selected range"}
+                  </p>
                 )}
               </div>
             )}
@@ -785,10 +904,10 @@ export function EmployeeLeaveSection() {
               disabled={
                 !leaveTypeId ||
                 !startDate ||
-                !endDate ||
                 startIsPast ||
-                endBeforeStart ||
-                workingDaysPreview <= 0 ||
+                (requestMode === "days"
+                  ? !endDate || endBeforeStart || workingDaysPreview <= 0
+                  : !hasValidHours || workingDaysPreview <= 0) ||
                 requestMutation.isPending
               }
             >
