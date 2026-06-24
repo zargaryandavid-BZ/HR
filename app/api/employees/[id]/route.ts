@@ -146,6 +146,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         ...(data.mealBreak2WaiverEnabled !== undefined && {
           mealBreak2WaiverEnabled: data.mealBreak2WaiverEnabled,
         }),
+        ...(data.locationRequirementEnabled !== undefined && {
+          locationRequirementEnabled: data.locationRequirementEnabled,
+        }),
         ...(data.emergencyContactName !== undefined && {
           emergencyContactName: data.emergencyContactName || null,
         }),

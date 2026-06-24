@@ -256,6 +256,8 @@ model Employee {
   scheduleConfig          Json?
   mealBreak1WaiverEnabled Boolean        @default(false)
   mealBreak2WaiverEnabled Boolean        @default(false)
+  /** When null, inherits company locationRequirementEnabled */
+  locationRequirementEnabled Boolean?
   emergencyContactName    String?
   emergencyContactPhone   String?
   emergencyContactRelation String?

@@ -57,6 +57,23 @@ export default function CompanySettingsPage() {
     reset(settings);
   }
 
+  const toggleLocationMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const res = await fetch("/api/settings/company", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locationRequirementEnabled: enabled }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? json.error ?? "Failed to save");
+      return json.data as SettingsForm;
+    },
+    onSuccess: (data) => {
+      setValue("locationRequirementEnabled", data.locationRequirementEnabled);
+      queryClient.invalidateQueries({ queryKey: ["company-settings"] });
+    },
+  });
+
   return (
     <div>
       <PageHeader title="Company Settings" description="Configure company-wide HR policies" />
@@ -119,7 +136,11 @@ export default function CompanySettingsPage() {
               <Switch
                 id="location-requirement-toggle"
                 checked={watch("locationRequirementEnabled") ?? settings?.locationRequirementEnabled ?? true}
-                onCheckedChange={(checked) => setValue("locationRequirementEnabled", checked)}
+                onCheckedChange={(checked) => {
+                  setValue("locationRequirementEnabled", checked);
+                  toggleLocationMutation.mutate(checked);
+                }}
+                disabled={toggleLocationMutation.isPending}
               />
             </div>
             <Button type="submit" disabled={mutation.isPending}>

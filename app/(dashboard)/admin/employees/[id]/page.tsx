@@ -30,6 +30,7 @@ import { EmployeeNotesSection } from "@/components/employees/individual-settings
 import { EmployeeHrDocumentsSection } from "@/components/employees/individual-settings/employee-hr-documents-section";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
 import { EmployeeActivityTab } from "@/components/employees/individual-settings/employee-activity-tab";
+import { EmployeeLocationClockSection } from "@/components/employees/employee-location-clock-section";
 import { Trash2 } from "lucide-react";
 import { CopyEmployeePortalLinkButton } from "@/components/employees/copy-employee-portal-link-button";
 import { useRouter } from "next/navigation";
@@ -292,7 +293,20 @@ export default function EmployeeDetailPage({ params }: PageProps) {
           />
         </TabsContent>
 
-        <TabsContent value="schedule" className="mt-4">
+        <TabsContent value="schedule" className="mt-4 space-y-4">
+          <EmployeeLocationClockSection
+            employeeId={id}
+            locationRequirementEnabled={employee.locationRequirementEnabled ?? null}
+            onSaved={(message) => {
+              setToastVariant("success");
+              setToast(message);
+              queryClient.invalidateQueries({ queryKey: ["employee", id] });
+            }}
+            onError={(message) => {
+              setToastVariant("error");
+              setToast(message);
+            }}
+          />
           <EmployeeForm
             key={`schedule-${employee.updatedAt}`}
             employeeId={id}

@@ -136,6 +136,7 @@ const baseEmployeeFormSchema = z.object({
   compensationEffectiveDate: z.string().optional(),
   mealBreak1WaiverEnabled: z.boolean().optional(),
   mealBreak2WaiverEnabled: z.boolean().optional(),
+  locationRequirementEnabled: z.boolean().nullable().optional(),
   ...personalInfoFields,
 });
 

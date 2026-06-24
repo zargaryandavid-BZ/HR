@@ -50,6 +50,39 @@ export function extractClientIp(headers: Headers): string {
   );
 }
 
+/** Whether location is required for an employee's clock in/out (company + per-employee override). */
+export async function isLocationRequiredForEmployee(
+  employeeId?: string
+): Promise<boolean> {
+  let companyEnabled = true;
+  try {
+    const settings = await prisma.companySettings.findUnique({
+      where: { id: "default" },
+      select: { locationRequirementEnabled: true },
+    });
+    companyEnabled = settings?.locationRequirementEnabled ?? true;
+  } catch {
+    companyEnabled = true;
+  }
+
+  if (!companyEnabled) return false;
+
+  if (!employeeId) return companyEnabled;
+
+  try {
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { locationRequirementEnabled: true },
+    });
+    if (employee?.locationRequirementEnabled === null || employee?.locationRequirementEnabled === undefined) {
+      return companyEnabled;
+    }
+    return employee.locationRequirementEnabled;
+  } catch {
+    return companyEnabled;
+  }
+}
+
 /**
  * Validate that a clock-in request comes from the physical facility.
  *
@@ -66,14 +99,11 @@ export function extractClientIp(headers: Headers): string {
  */
 export async function validateClockInLocation(
   clientIp: string,
-  coords: GpsCoords | null | undefined
+  coords: GpsCoords | null | undefined,
+  employeeId?: string
 ): Promise<LocationValidationResult> {
-  const settings = await prisma.companySettings.findUnique({
-    where: { id: "default" },
-  });
-  const locationRequirementEnabled = (settings as { locationRequirementEnabled?: boolean } | null)
-    ?.locationRequirementEnabled;
-  if (locationRequirementEnabled === false) {
+  const locationRequired = await isLocationRequiredForEmployee(employeeId);
+  if (!locationRequired) {
     return { allowed: true, method: "UNCONFIGURED" };
   }
 

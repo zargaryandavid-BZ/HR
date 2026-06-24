@@ -36,6 +36,8 @@ export default function LocationZonesPage() {
   const [radiusMeters, setRadiusMeters] = useState("100");
   const [isActive, setIsActive] = useState(true);
 
+  const [toggleError, setToggleError] = useState<string | null>(null);
+
   const { data: zones, isLoading } = useQuery({
     queryKey: ["location-zones"],
     queryFn: async () => {
@@ -92,12 +94,33 @@ export default function LocationZonesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ locationRequirementEnabled: enabled }),
       });
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.message ?? "Failed to update location requirement");
+        throw new Error(json.message ?? json.error ?? "Failed to update location requirement");
       }
+      return json.data as CompanySettings;
     },
-    onSuccess: () => {
+    onMutate: async (enabled) => {
+      setToggleError(null);
+      await queryClient.cancelQueries({ queryKey: ["company-settings"] });
+      const previous = queryClient.getQueryData<CompanySettings>(["company-settings"]);
+      queryClient.setQueryData<CompanySettings>(["company-settings"], (old) => ({
+        ...(old ?? { locationRequirementEnabled: true }),
+        locationRequirementEnabled: enabled,
+      }));
+      return { previous };
+    },
+    onError: (err, _enabled, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["company-settings"], context.previous);
+      }
+      setToggleError(err instanceof Error ? err.message : "Failed to update setting");
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["company-settings"], data);
+      setToggleError(null);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["company-settings"] });
     },
   });
@@ -136,9 +159,12 @@ export default function LocationZonesPage() {
               id="location-requirement-toggle"
               checked={companySettings?.locationRequirementEnabled ?? true}
               onCheckedChange={(checked) => toggleRequirementMutation.mutate(checked)}
-              disabled={toggleRequirementMutation.isPending}
+              disabled={toggleRequirementMutation.isPending || companySettings === undefined}
             />
           </div>
+          {toggleError && (
+            <p className="text-sm text-destructive mt-3">{toggleError}</p>
+          )}
         </CardContent>
       </Card>
       <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
