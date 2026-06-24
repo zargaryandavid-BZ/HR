@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow, format } from "date-fns";
+import { formatDisplayDate, formatDisplayDateTime } from "@/lib/dates";
 import {
   Activity,
   ChevronDown,
@@ -162,7 +163,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
         >
           {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
           <span className="ml-1 text-muted-foreground/60">
-            · {format(new Date(item.createdAt), "MMM d, yyyy h:mm a")}
+            · {formatDisplayDateTime(item.createdAt)}
           </span>
         </p>
       </div>

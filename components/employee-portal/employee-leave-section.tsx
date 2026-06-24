@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatStoredDateRange, parseStoredDateLocal } from "@/lib/dates";
+import { formatDisplayDate, formatStoredDateRange, parseStoredDateLocal } from "@/lib/dates";
 
 type Balance = {
   id: string;
@@ -378,7 +378,7 @@ export function EmployeeLeaveSection() {
               const balanceHours = b.balanceHours ?? b.remaining * 8;
               const balanceDays = b.remaining;
               const eligibleLabel = b.eligibleDate
-                ? format(parseISO(b.eligibleDate), "MMM d, yyyy")
+                ? formatDisplayDate(b.eligibleDate)
                 : null;
 
               if (b.isAccrued) {
@@ -608,7 +608,7 @@ export function EmployeeLeaveSection() {
                           <StatusChip status={row.status} />
                         </td>
                         <td className="py-3 pr-4 whitespace-nowrap">
-                          {format(parseISO(row.submittedAt), "MMM d, yyyy")}
+                          {formatDisplayDate(row.submittedAt)}
                         </td>
                         <td className="py-3">
                           {row.status === "PENDING" && cancelConfirmId !== row.id && (

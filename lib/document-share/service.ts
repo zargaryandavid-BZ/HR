@@ -11,6 +11,8 @@ import { logIndividualSettingsAudit } from "@/lib/individual-settings/audit";
 
 import { getAppUrl } from "@/lib/app-url";
 
+const LINK_EXPIRY_DAYS = 7;
+
 /** Build the public document share URL for a token */
 export function buildDocumentShareUrl(token: string): string {
   const base = getAppUrl();

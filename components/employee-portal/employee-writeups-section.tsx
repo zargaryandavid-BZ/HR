@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -174,7 +175,7 @@ export function EmployeeWriteUpsSection() {
                       </span>
                     </td>
                     <td className="py-3 text-xs text-muted-foreground">
-                      {format(new Date(w.date), "MMM d, yyyy")}
+                      {formatDisplayDate(w.date)}
                     </td>
                     <td className="py-3 text-right whitespace-nowrap">
                       {w.acknowledgedAt ? (
@@ -182,7 +183,7 @@ export function EmployeeWriteUpsSection() {
                           <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                           Acknowledged{" "}
                           <span className="font-normal">
-                            {format(new Date(w.acknowledgedAt), "MMM d, yyyy")}
+                            {formatDisplayDate(w.acknowledgedAt)}
                           </span>
                         </span>
                       ) : (

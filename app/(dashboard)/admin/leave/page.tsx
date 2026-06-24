@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Download, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatDisplayDate } from "@/lib/dates";
 
 type LeaveType = { id: string; name: string };
 type Department = { id: string; name: string };
@@ -119,7 +120,7 @@ export default function AdminLeavePage() {
       r.workingDays,
       r.status,
       r.note ?? "",
-      new Date(r.createdAt).toLocaleDateString(),
+      formatDisplayDate(r.createdAt),
     ]);
 
     const csv = [headers, ...rows].map((row) => row.map((cell: string | number) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");

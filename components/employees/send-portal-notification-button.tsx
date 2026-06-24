@@ -208,7 +208,7 @@ export function SendPortalNotificationButton({
               </p>
               <p className="whitespace-pre-line">{preview.inAppMessage}</p>
               <p className="text-xs text-muted-foreground break-all">
-                Log in: {preview.portalUrl}
+                Portal: {preview.portalUrl}
               </p>
             </div>
 

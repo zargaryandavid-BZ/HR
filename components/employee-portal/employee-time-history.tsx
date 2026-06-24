@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, isToday, parseISO, subDays, startOfDay, isAfter } from "date-fns";
+import { formatDisplayDateWithWeekday } from "@/lib/dates";
 import { Clock, Coffee, Utensils, LogIn, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -176,7 +177,7 @@ function TodayTimeline({ entry }: { entry: TimeEntry }) {
 function ShiftRow({ entry }: { entry: TimeEntry }) {
   const [open, setOpen] = useState(false);
 
-  const dateLabel = format(parseISO(entry.clockIn), "EEE MMM d");
+  const dateLabel = formatDisplayDateWithWeekday(entry.clockIn);
   const clockInTime = fmtTime(entry.clockIn);
   const clockOutTime = entry.clockOut ? fmtTime(entry.clockOut) : "—";
   const hoursLabel = entry.hoursWorked != null ? fmtHours(entry.hoursWorked) : null;

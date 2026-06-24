@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import {
   AlertCircle,
   CheckCircle2,
@@ -221,7 +222,7 @@ function WriteUpRow({
         </span>
       </td>
       <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
-        {format(new Date(writeUp.date), "MMM d, yyyy")}
+        {formatDisplayDate(writeUp.date)}
       </td>
       <td className="px-3 py-2 max-w-0">
         <div className="flex items-center gap-1.5 min-w-0">
@@ -245,10 +246,10 @@ function WriteUpRow({
         {writeUp.acknowledgedAt ? (
           <span
             className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-800"
-            title={`Acknowledged ${format(new Date(writeUp.acknowledgedAt), "MMM d, yyyy")}`}
+            title={`Acknowledged ${formatDisplayDate(writeUp.acknowledgedAt)}`}
           >
             <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-            Acknowledged — {format(new Date(writeUp.acknowledgedAt), "MMM d, yyyy")}
+            Acknowledged — {formatDisplayDate(writeUp.acknowledgedAt)}
           </span>
         ) : (
           <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">

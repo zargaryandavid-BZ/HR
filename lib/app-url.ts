@@ -27,3 +27,9 @@ export function getEmployeePortalLoginUrl(appBaseUrl?: string): string {
   const base = appBaseUrl ? stripTrailingSlash(appBaseUrl) : getAppUrl();
   return `${base}/employee/login`;
 }
+
+/** Employee portal dashboard URL (used in HR notification email/SMS) */
+export function getEmployeePortalDashboardUrl(appBaseUrl?: string): string {
+  const base = appBaseUrl ? stripTrailingSlash(appBaseUrl) : getAppUrl();
+  return `${base}/employee/dashboard`;
+}

@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import { Download, Eye, MoreHorizontal, RefreshCw, Send } from "lucide-react";
 import type { GeneratedDocumentItem } from "@/lib/individual-settings/constants";
 import { Button } from "@/components/ui/button";
@@ -176,7 +177,7 @@ export function EmployeeHrDocumentsSection({
                     <p className="text-sm text-muted-foreground">Updating…</p>
                   ) : doc ? (
                     <p className="text-sm text-green-700">
-                      Generated {format(new Date(doc.generatedAt), "MMM d, yyyy")}
+                      Generated {formatDisplayDate(doc.generatedAt)}
                     </p>
                   ) : (
                     <p className="text-sm text-muted-foreground">Not yet generated</p>

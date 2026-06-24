@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { format } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiSuccess, apiError } from "@/lib/api-response";
@@ -41,7 +42,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       previousRate: r.previousRate,
       newRate: r.newRate,
       payType: r.payType,
-      effectiveDate: format(r.effectiveDate, "MMM d, yyyy"),
+      effectiveDate: formatDisplayDate(r.effectiveDate),
       changedBy: userMap.get(r.changedBy) ?? "Unknown",
       note: r.note,
       createdAt: r.createdAt.toISOString(),

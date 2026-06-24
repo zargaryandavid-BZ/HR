@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { format } from "date-fns";
+import { formatDisplayWeekdayDate } from "@/lib/dates";
 import { Coffee, Info, UtensilsCrossed } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -43,7 +43,7 @@ export function EmployeeBreakScheduleSection() {
     },
   });
 
-  const todayLabel = format(new Date(), "EEEE, MMM d");
+  const todayLabel = formatDisplayWeekdayDate(new Date());
   const sectionTitle = `My Break Schedule — ${todayLabel}`;
 
   if (isLoading) return <Skeleton className="h-48 w-full" />;

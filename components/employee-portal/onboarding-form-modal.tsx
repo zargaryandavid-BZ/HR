@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { format } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 
 type OnboardingFormModalProps = {
   step: OnboardingTaskStep | null;
@@ -113,7 +114,7 @@ function OnboardingFormBody({
 
       {isReadOnly && step.completedAt && (
         <div className="rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
-          Submitted on {format(new Date(step.completedAt), "MMM d, yyyy")}. Contact HR to make
+          Submitted on {formatDisplayDate(step.completedAt)}. Contact HR to make
           changes.
         </div>
       )}

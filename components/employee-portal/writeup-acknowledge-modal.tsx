@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import { AlertTriangle, Loader2, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -100,7 +101,7 @@ export function WriteUpAcknowledgeModal({
         <div className="space-y-4 text-sm">
           <dl className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-2">
             <dt className="text-muted-foreground">Date</dt>
-            <dd>{format(new Date(writeUp.date), "MMM d, yyyy")}</dd>
+            <dd>{formatDisplayDate(writeUp.date)}</dd>
             <dt className="text-muted-foreground">Category</dt>
             <dd>{writeUp.categoryLabel}</dd>
             <dt className="text-muted-foreground">Issued by</dt>

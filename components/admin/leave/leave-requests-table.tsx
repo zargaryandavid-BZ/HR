@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { formatStoredDateRange } from "@/lib/dates";
+import { formatStoredDateRange, formatDisplayDate } from "@/lib/dates";
 import { cn, formatLeaveBalanceValue } from "@/lib/utils";
 import { Check, X, Undo2, ChevronUp, ChevronDown } from "lucide-react";
 import { EmptyState } from "@/components/shared/page-header";
@@ -304,11 +304,7 @@ export function LeaveRequestsTable({
           req.endDate.slice(0, 10)
         );
 
-        const submittedDate = new Date(req.createdAt).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
+        const submittedDate = formatDisplayDate(req.createdAt);
 
         return (
           <div

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -169,7 +170,7 @@ export function EmployeeIdentityDocumentsSection({
                               : ""
                         }
                       >
-                        {format(parseISO(doc.expiryDate), "MMM d, yyyy")}
+                        {formatDisplayDate(doc.expiryDate)}
                       </span>
                       {expiryStatus === "expired" && (
                         <span className="inline-flex rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-[10px] font-medium">

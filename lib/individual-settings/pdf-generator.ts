@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { format } from "date-fns";
 import type { Employee, Department } from "@prisma/client";
+import { formatDisplayDate } from "@/lib/dates";
 
 type EmployeeWithRelations = Employee & {
   department: Department | null;
@@ -40,7 +40,7 @@ function formatPayPeriod(payType: Employee["payType"]): string {
 /** Format a date or return fallback */
 function formatDateOrFallback(date: Date | null): string {
   if (!date) return "To be confirmed";
-  return format(date, "MMMM d, yyyy");
+  return formatDisplayDate(date);
 }
 
 /** Wrap text to fit within a max width */
@@ -118,7 +118,7 @@ export async function generateOfferLetterPdf(
   });
 
   y -= 36;
-  page.drawText(format(new Date(), "MMMM d, yyyy"), { x: margin, y, size: 11, font });
+  page.drawText(formatDisplayDate(new Date()), { x: margin, y, size: 11, font });
   y -= 28;
 
   const fullName = `${employee.firstName} ${employee.lastName}`;

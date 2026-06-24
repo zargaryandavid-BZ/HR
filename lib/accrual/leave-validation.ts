@@ -5,6 +5,7 @@ import {
   daysUntilLeaveEligible,
   getLeaveEligibleDate,
 } from "@/lib/accrual/eligibility";
+import { formatDisplayDate } from "@/lib/dates";
 
 export { canUseLeave, daysUntilLeaveEligible, getLeaveEligibleDate };
 
@@ -44,11 +45,7 @@ export async function validateAccruedLeaveEligibility(
 
   const days = daysUntilLeaveEligible(context.hireDate, context.policy.usableAfterDays);
   const eligibleDate = getLeaveEligibleDate(context.hireDate, context.policy.usableAfterDays);
-  const formatted = eligibleDate.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const formatted = formatDisplayDate(eligibleDate);
 
   return {
     ok: false,

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { formatDisplayDate, formatDisplayDateTime } from "@/lib/dates";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -138,7 +139,7 @@ export function AccrualDetailDrawer({
                   <p className="text-amber-700">
                     ⏳ Eligible in {data.eligibility.daysUntilEligible} day
                     {data.eligibility.daysUntilEligible !== 1 ? "s" : ""} (
-                    {format(new Date(data.eligibility.eligibleDate), "MMM d, yyyy")})
+                    {formatDisplayDate(data.eligibility.eligibleDate)})
                   </p>
                 )}
               </div>
@@ -231,7 +232,7 @@ export function AccrualDetailDrawer({
                               <div className="flex justify-between gap-2">
                                 <span className="font-medium">{log.type}</span>
                                 <span className="text-muted-foreground">
-                                  {format(new Date(log.createdAt), "MMM d, yyyy")}
+                                  {formatDisplayDateTime(log.createdAt)}
                                 </span>
                               </div>
                               <p>

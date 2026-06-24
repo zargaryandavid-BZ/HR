@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { format, parseISO } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import type { DocumentType } from "@prisma/client";
 import { DocumentTypeBadge } from "@/components/documents/document-type-badge";
@@ -56,7 +56,7 @@ export function EmployeeOffboardingSection() {
   const needsAction = allDocs.filter((d) => employeeNeedsSignedUpload(d.status)).length;
   const progressPct = total > 0 ? Math.round((signedCount / total) * 100) : 0;
   const lastDayLabel = data?.instance?.lastDayDate
-    ? format(parseISO(data.instance.lastDayDate.slice(0, 10) + "T12:00:00.000Z"), "MMM d, yyyy")
+    ? formatDisplayDate(data.instance.lastDayDate.slice(0, 10))
     : null;
 
   if (isLoading) return <Skeleton className="h-48 w-full" />;

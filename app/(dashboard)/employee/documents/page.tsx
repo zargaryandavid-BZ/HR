@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import { Download } from "lucide-react";
 import { PageHeader, EmptyState } from "@/components/shared/page-header";
 import { ToastBanner } from "@/components/shared/toast-banner";
@@ -109,7 +110,7 @@ function DocumentCard({
           </div>
           <Badge variant={doc.acknowledged ? "success" : "destructive"}>
             {doc.acknowledged && doc.acknowledgedAt
-              ? `Acknowledged on ${format(new Date(doc.acknowledgedAt), "MMM d, yyyy")}`
+              ? `Acknowledged on ${formatDisplayDate(doc.acknowledgedAt)}`
               : "Not yet acknowledged"}
           </Badge>
         </div>
@@ -133,7 +134,7 @@ function DocumentCard({
         {doc.acknowledged && doc.signedFileUrl && (
           <p className="text-sm text-muted-foreground">
             Signed copy uploaded on{" "}
-            {doc.signedAt ? format(new Date(doc.signedAt), "MMM d, yyyy") : "—"}
+            {doc.signedAt ? formatDisplayDate(doc.signedAt) : "—"}
           </p>
         )}
       </CardContent>

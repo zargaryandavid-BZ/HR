@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import type { FileUploadStepConfig } from "@/lib/onboarding/types";
 import {
   formatAcceptedTypes,
@@ -83,7 +84,7 @@ export function OnboardingUploadModal({
             {step.completedAt && (
               <span className="text-muted-foreground">
                 {" "}
-                — uploaded {format(new Date(step.completedAt), "MMM d, yyyy")}
+                — uploaded {formatDisplayDate(step.completedAt)}
               </span>
             )}
             <div className="mt-2">

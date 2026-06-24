@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { formatDisplayDate } from "@/lib/dates";
 
 const MISSED_THRESHOLD_HOURS = 16;
 
@@ -32,7 +33,7 @@ export async function detectAndFlagMissedClockOuts(): Promise<number> {
         sentAt: new Date(),
         contentSnapshot: {
           title: "Missed Clock-Out",
-          message: `⚠ ${entry.employee.firstName} ${entry.employee.lastName} never clocked out on ${entry.clockIn.toLocaleDateString()}.`,
+          message: `⚠ ${entry.employee.firstName} ${entry.employee.lastName} never clocked out on ${formatDisplayDate(entry.clockIn)}.`,
         },
       },
     });

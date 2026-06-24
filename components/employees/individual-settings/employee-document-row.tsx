@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import {
   CheckCircle2,
   Download,
@@ -182,7 +183,7 @@ export function EmployeeDocumentRow({
   });
 
   const sentLabel = doc.assignmentSentAt
-    ? `Sent ${format(parseISO(doc.assignmentSentAt), "MMM d, yyyy")}`
+    ? `Sent ${formatDisplayDate(doc.assignmentSentAt)}`
     : null;
 
   return (

@@ -1,4 +1,4 @@
-import { getEmployeePortalLoginUrl } from "@/lib/app-url";
+import { getEmployeePortalDashboardUrl } from "@/lib/app-url";
 import { buildBrandedEmailHtml } from "@/lib/email/template";
 
 export const PORTAL_REQUEST_TOPIC_IDS = [
@@ -98,7 +98,7 @@ export function buildPortalRequestMessages({
   appBaseUrl?: string;
 }) {
   const topic = getPortalRequestTopic(topicId);
-  const portalUrl = getEmployeePortalLoginUrl(appBaseUrl);
+  const portalUrl = getEmployeePortalDashboardUrl(appBaseUrl);
   const note = customMessage?.trim() ?? "";
   const baseMessage = topic.detail;
 
@@ -110,13 +110,13 @@ export function buildPortalRequestMessages({
     greeting: employeeName,
     bodyHtml: `<p style="margin:0;">${escapeHtml(baseMessage)}</p>`,
     note: note || undefined,
-    ctaLabel: "Log in to Employee Portal",
+    ctaLabel: "Open Employee Portal",
     ctaUrl: portalUrl,
-    footerNote: "Sign in with your registered phone number.",
+    footerNote: "Sign in with your registered phone number if prompted.",
   });
 
   const smsNote = note ? ` Note: ${note}.` : "";
-  const smsBody = `Hi ${employeeName}, ${baseMessage}${smsNote} Log in: ${portalUrl}`;
+  const smsBody = `Hi ${employeeName}, ${baseMessage}${smsNote} Open your portal: ${portalUrl}`;
 
   return {
     title: topic.label,

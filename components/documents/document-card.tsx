@@ -1,6 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import { Eye, Pencil, Users } from "lucide-react";
 import type { DocumentListItem } from "@/lib/documents/constants";
 import { DocumentTypeBadge } from "@/components/documents/document-type-badge";
@@ -38,7 +39,7 @@ export function DocumentCard({
         <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="outline">v{doc.version}</Badge>
           <span className="text-xs text-muted-foreground">
-            Updated {format(new Date(doc.updatedAt), "MMM d, yyyy")}
+            Updated {formatDisplayDate(doc.updatedAt)}
           </span>
         </div>
         {showAssign && doc.assignmentTags.length > 0 && (

@@ -26,10 +26,12 @@ export function calculateWorkingDays(
   return count;
 }
 
-/** Format a date range as "Jun 22 – Jun 24" */
+import { formatStoredDateRange } from "@/lib/dates";
+
+/** Format a date range as "Feb 4 – Feb 8 2025" */
 export function formatDateRange(start: Date, end: Date): string {
-  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-  const startStr = start.toLocaleDateString("en-US", opts);
-  const endStr = end.toLocaleDateString("en-US", opts);
-  return `${startStr} – ${endStr}`;
+  return formatStoredDateRange(
+    start.toISOString().slice(0, 10),
+    end.toISOString().slice(0, 10)
+  );
 }

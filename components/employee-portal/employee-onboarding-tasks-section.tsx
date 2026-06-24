@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import { CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import type { OnboardingTaskStep, OnboardingTasksPayload } from "@/lib/onboarding/task-types";
@@ -36,7 +37,7 @@ function StatusChip({ step }: { step: OnboardingTaskStep }) {
         </span>
         {step.completedAt && (
           <p className="text-[10px] text-muted-foreground mt-0.5">
-            {format(new Date(step.completedAt), "MM/dd/yy")}
+            {formatDisplayDate(step.completedAt)}
           </p>
         )}
       </div>

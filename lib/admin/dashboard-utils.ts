@@ -5,7 +5,7 @@ import {
   parse,
   startOfDay,
 } from "date-fns";
-import { formatStoredDate, formatStoredDateRange } from "@/lib/dates";
+import { formatDisplayDate, formatDisplayMonthDay, formatStoredDateRange } from "@/lib/dates";
 
 export const AVATAR_COLORS = [
   "bg-violet-500",
@@ -48,14 +48,14 @@ export function parseViewMonth(monthParam?: string): Date {
   return isValid(parsed) ? parsed : startOfDay(new Date());
 }
 
-/** Full header date, e.g. "Monday, Jun 9, 2026" */
+/** Full header date, e.g. "Monday, Feb 4 2025" */
 export function formatHeaderDate(date: Date): string {
-  return format(date, "EEEE, MMM d, yyyy");
+  return format(date, "EEEE, MMM d yyyy");
 }
 
-/** Short date for KPI return label, e.g. "Returns Jun 12" */
+/** Short date for KPI return label, e.g. "Returns Feb 4" */
 export function formatReturnDate(date: Date): string {
-  return `Returns ${format(date, "MMM d")}`;
+  return `Returns ${formatDisplayMonthDay(date)}`;
 }
 
 /** Normalize a Date or ISO string to YYYY-MM-DD for timezone-safe formatting */
@@ -73,11 +73,7 @@ export function formatShortDateRange(start: Date | string, end: Date | string): 
 
 /** Write-up or document date label */
 export function formatShortDate(date: Date | string): string {
-  return formatStoredDate(toDateOnly(date), {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatDisplayDate(toDateOnly(date));
 }
 
 /** Whole calendar days since a date (0 = today) */

@@ -80,7 +80,7 @@ function groupItems(items: AdminImportantDateItem[]): DateGroup[] {
 
 /** Format a date for display — birthdays never show birth year */
 function formatItemDate(item: AdminImportantDateItem): string {
-  return formatStoredDate(item.date, { month: "short", day: "numeric" });
+  return formatStoredDate(item.date, { monthDayOnly: true });
 }
 
 /** Date badge for row trailing column */

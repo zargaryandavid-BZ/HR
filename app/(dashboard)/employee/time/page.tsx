@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { format, formatDuration, intervalToDuration } from "date-fns";
+import { formatDisplayWeekdayDate } from "@/lib/dates";
 import { PageHeader, EmptyState } from "@/components/shared/page-header";
 import { EmployeeClockWidget } from "@/components/employee-portal/employee-clock-widget";
 import { Card, CardContent } from "@/components/ui/card";
@@ -78,7 +79,7 @@ export default function EmployeeTimePage() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="font-medium text-sm">
-                          {format(new Date(entry.clockIn), "EEEE, MMM d")}
+                          {formatDisplayWeekdayDate(entry.clockIn)}
                         </p>
                         <Badge className={`text-xs ${STATUS_COLOR[entry.status] ?? "bg-slate-100"}`} variant="outline">
                           {entry.status.replace("_", " ")}

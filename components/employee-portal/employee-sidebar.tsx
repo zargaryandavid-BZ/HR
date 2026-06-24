@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import QRCode from "qrcode";
 import { format } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -209,11 +210,11 @@ export function EmployeeSidebar() {
   const jobTitle = me?.jobTitle ?? positionName;
 
   const dob = me?.birthdate
-    ? (() => { try { return format(new Date(me.birthdate!), "MMM d, yyyy"); } catch { return null; } })()
+    ? (() => { try { return formatDisplayDate(me.birthdate!); } catch { return null; } })()
     : null;
 
   const startDateFmt = me?.startDate
-    ? (() => { try { return format(new Date(me.startDate!), "MMM d, yyyy"); } catch { return null; } })()
+    ? (() => { try { return formatDisplayDate(me.startDate!); } catch { return null; } })()
     : null;
 
   const addressLine1 = me?.addressStreet ?? null;
@@ -227,7 +228,7 @@ export function EmployeeSidebar() {
     : null;
 
   const compensationEffectiveDateFmt = me?.compensationEffectiveDate
-    ? (() => { try { return format(new Date(me.compensationEffectiveDate!), "MMM d, yyyy"); } catch { return null; } })()
+    ? (() => { try { return formatDisplayDate(me.compensationEffectiveDate!); } catch { return null; } })()
     : null;
 
   const hasEmergency =

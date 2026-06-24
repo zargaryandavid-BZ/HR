@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { format } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import { formatEmployeeName } from "@/lib/utils";
 import { EmployeeClassificationBadge } from "@/components/shared/employee-classification-badge";
 
@@ -40,7 +41,7 @@ type Employee = {
 function formatStartDate(startDate: string | null): string {
   if (!startDate) return "—";
   try {
-    return format(new Date(startDate), "MMM d, yyyy");
+    return formatDisplayDate(startDate);
   } catch {
     return "—";
   }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import { CheckCircle2, PenLine } from "lucide-react";
 import type { DocumentType } from "@prisma/client";
 import { DocumentTypeBadge } from "@/components/documents/document-type-badge";
@@ -254,7 +255,7 @@ function OnboardingDocRow({
             className="text-[10px] px-1.5 py-0 shrink-0"
           />
           <span className="text-[11px] text-muted-foreground shrink-0 whitespace-nowrap">
-            Signed on: {doc.signedAt ? format(new Date(doc.signedAt), "MM/dd/yy") : "—"}
+            Signed on: {doc.signedAt ? formatDisplayDate(doc.signedAt) : "—"}
           </span>
         </div>
 

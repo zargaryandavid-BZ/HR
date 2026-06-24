@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { formatDisplayMonthDay } from "@/lib/dates";
 import {
   CountBadge,
   DashboardEmptyState,
@@ -34,7 +34,7 @@ export function OffboardingInProgressCard({ instances }: OffboardingCardProps) {
           {instances.map((instance) => {
             const avatarColor = getAvatarColor(instance.employeeId);
             const lastDay = instance.lastDayDate
-              ? format(new Date(instance.lastDayDate), "MMM d")
+              ? formatDisplayMonthDay(instance.lastDayDate)
               : "—";
 
             return (

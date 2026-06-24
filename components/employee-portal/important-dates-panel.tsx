@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Calendar, X, AlertTriangle, Clock, CalendarCheck, FileText, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatDisplayDate } from "@/lib/dates";
 
 type DateUrgency = "overdue" | "urgent" | "warning" | "upcoming";
 
@@ -33,9 +34,7 @@ const URGENCY_STYLES: Record<DateUrgency, { border: string; label: string; badge
 
 function formatDateLabel(isoDate: string): string {
   try {
-    return new Date(isoDate + "T12:00:00").toLocaleDateString("en-US", {
-      month: "short", day: "numeric", year: "numeric",
-    });
+    return formatDisplayDate(isoDate);
   } catch {
     return isoDate;
   }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import { PageHeader } from "@/components/shared/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -118,7 +119,7 @@ export default function AdminNotificationsPage() {
                   </td>
                   <td className="px-4 py-3 max-w-md truncate">{row.message}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
-                    {format(parseISO(row.createdAt), "MMM d, yyyy")}
+                    {formatDisplayDate(row.createdAt)}
                   </td>
                   <td className="px-4 py-3">
                     <span

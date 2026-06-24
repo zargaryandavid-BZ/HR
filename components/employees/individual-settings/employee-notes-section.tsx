@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
 import type { ManagerNoteItem } from "@/lib/individual-settings/constants";
@@ -236,7 +237,7 @@ function NoteItem({
         <>
           <p className="text-sm whitespace-pre-wrap">{note.content}</p>
           <p className="text-xs text-muted-foreground mt-1">
-            {note.issuedByName} on {format(new Date(note.createdAt), "MMM d, yyyy")}
+            {note.issuedByName} on {formatDisplayDate(note.createdAt)}
           </p>
           {(canEdit || canDelete) && (
             <div className="flex gap-1 mt-2">

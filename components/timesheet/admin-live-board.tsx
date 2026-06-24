@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Plus, Users, UserX, Coffee, Download } from "lucide-react";
+import { formatDisplayDateTime } from "@/lib/dates";
+import { Plus, Users, UserX, Coffee, Download, Trash2, Utensils } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { DataTable } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +60,31 @@ type TimeEntryRow = {
 
 type RangeFilter = "today" | "week" | "month" | "custom";
 
+type AddBreakRow = {
+  breakType: "REST" | "MEAL";
+  startedAt: string;
+  endedAt: string;
+};
+
+function toDatetimeLocal(value: string): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
+}
+
+function addMinutesToDatetimeLocal(value: string, minutes: number): string {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  d.setMinutes(d.getMinutes() + minutes);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
+}
+
 function StatusDot({ isClockedIn, isOnBreak }: { isClockedIn: boolean; isOnBreak: boolean }) {
   if (isOnBreak) return <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-400" />;
   if (isClockedIn) return <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500" />;
@@ -90,6 +116,7 @@ export function AdminLiveBoard() {
   const [addEmployeeId, setAddEmployeeId] = useState("");
   const [addClockIn, setAddClockIn] = useState("");
   const [addClockOut, setAddClockOut] = useState("");
+  const [addBreakRows, setAddBreakRows] = useState<AddBreakRow[]>([]);
   const [addReason, setAddReason] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const [addLoading, setAddLoading] = useState(false);
@@ -137,6 +164,36 @@ export function AdminLiveBoard() {
     queryClient.invalidateQueries({ queryKey: ["admin-clock-live"] });
   }
 
+  function resetAddEntryForm() {
+    setAddEmployeeId("");
+    setAddClockIn("");
+    setAddClockOut("");
+    setAddBreakRows([]);
+    setAddReason("");
+    setAddError(null);
+  }
+
+  function addBreakRow(options?: { tenMinutes?: boolean }) {
+    const base = addClockIn || toDatetimeLocal(new Date().toISOString());
+    const defaultEnd = options?.tenMinutes ? addMinutesToDatetimeLocal(base, 10) : base;
+    setAddBreakRows((rows) => [
+      ...rows,
+      {
+        breakType: "REST",
+        startedAt: base,
+        endedAt: defaultEnd,
+      },
+    ]);
+  }
+
+  function updateBreakRow(index: number, patch: Partial<AddBreakRow>) {
+    setAddBreakRows((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+
+  function removeBreakRow(index: number) {
+    setAddBreakRows((rows) => rows.filter((_, i) => i !== index));
+  }
+
   function exportCsv() {
     const params = new URLSearchParams({ range });
     if (range === "custom" && customFrom && customTo) {
@@ -181,6 +238,16 @@ export function AdminLiveBoard() {
       setAddError("Employee, clock in, and reason are required");
       return;
     }
+    for (const row of addBreakRows) {
+      if (!row.startedAt) {
+        setAddError("Each break must include a break-in time");
+        return;
+      }
+      if (row.endedAt && new Date(row.endedAt) < new Date(row.startedAt)) {
+        setAddError("Break out time cannot be before break in time");
+        return;
+      }
+    }
     setAddLoading(true);
     setAddError(null);
     const res = await fetch("/api/admin/time-entries", {
@@ -190,6 +257,11 @@ export function AdminLiveBoard() {
         employeeId: addEmployeeId,
         clockIn: new Date(addClockIn).toISOString(),
         clockOut: addClockOut ? new Date(addClockOut).toISOString() : undefined,
+        breaks: addBreakRows.map((row) => ({
+          breakType: row.breakType,
+          startedAt: new Date(row.startedAt).toISOString(),
+          endedAt: row.endedAt ? new Date(row.endedAt).toISOString() : null,
+        })),
         reason: addReason.trim(),
       }),
     });
@@ -200,10 +272,7 @@ export function AdminLiveBoard() {
       return;
     }
     setAddOpen(false);
-    setAddEmployeeId("");
-    setAddClockIn("");
-    setAddClockOut("");
-    setAddReason("");
+    resetAddEntryForm();
     refreshEntries();
   }
 
@@ -302,11 +371,11 @@ export function AdminLiveBoard() {
                           {entry.employee.firstName} {entry.employee.lastName}
                         </td>
                         <td className="px-4 py-2 text-sm">
-                          {format(new Date(entry.clockIn), "MMM d, h:mm a")}
+                          {formatDisplayDateTime(entry.clockIn)}
                         </td>
                         <td className="px-4 py-2 text-sm">
                           {entry.clockOut
-                            ? format(new Date(entry.clockOut), "MMM d, h:mm a")
+                            ? formatDisplayDateTime(entry.clockOut)
                             : "—"}
                         </td>
                         <td className="px-4 py-2">
@@ -455,7 +524,13 @@ export function AdminLiveBoard() {
         />
       )}
 
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      <Dialog
+        open={addOpen}
+        onOpenChange={(open) => {
+          setAddOpen(open);
+          if (!open) resetAddEntryForm();
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Time Entry</DialogTitle>
@@ -493,6 +568,95 @@ export function AdminLiveBoard() {
                 value={addClockOut}
                 onChange={(e) => setAddClockOut(e.target.value)}
               />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Breaks (optional)</Label>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => addBreakRow()}
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add Break
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => addBreakRow({ tenMinutes: true })}
+                  >
+                    <Coffee className="h-3 w-3 mr-1" />
+                    Add 10 min
+                  </Button>
+                </div>
+              </div>
+              {addBreakRows.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Add break-in and break-out times, including quick 10-minute breaks.
+                </p>
+              )}
+              {addBreakRows.map((row, index) => (
+                <div key={`${row.startedAt}-${index}`} className="rounded-md border p-3 space-y-2 bg-slate-50">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant={row.breakType === "REST" ? "default" : "outline"}
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => updateBreakRow(index, { breakType: "REST" })}
+                      >
+                        <Coffee className="h-3 w-3 mr-1" />
+                        Rest
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={row.breakType === "MEAL" ? "default" : "outline"}
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => updateBreakRow(index, { breakType: "MEAL" })}
+                      >
+                        <Utensils className="h-3 w-3 mr-1" />
+                        Meal
+                      </Button>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-red-600"
+                      onClick={() => removeBreakRow(index)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Break In</Label>
+                      <Input
+                        type="datetime-local"
+                        className="h-8 text-xs"
+                        value={row.startedAt}
+                        onChange={(e) => updateBreakRow(index, { startedAt: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Break Out</Label>
+                      <Input
+                        type="datetime-local"
+                        className="h-8 text-xs"
+                        value={row.endedAt}
+                        onChange={(e) => updateBreakRow(index, { endedAt: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
             <div className="space-y-2">
               <Label>Reason</Label>

@@ -241,7 +241,7 @@ export default function HolidaysPage() {
               <tr key={h.id} className="border-b">
                 <td className="px-4 py-3 font-medium">{h.name}</td>
                 <td className="px-4 py-3">
-                  {formatStoredDate(h.date, { month: "short", day: "numeric", year: "numeric" })}
+                  {formatStoredDate(h.date)}
                 </td>
                 <td className="px-4 py-3">
                   <Badge variant={h.isPaid ? "success" : "secondary"}>{h.isPaid ? "Paid" : "Unpaid"}</Badge>

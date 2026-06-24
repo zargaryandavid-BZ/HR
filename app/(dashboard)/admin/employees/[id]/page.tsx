@@ -30,7 +30,8 @@ import { EmployeeNotesSection } from "@/components/employees/individual-settings
 import { EmployeeHrDocumentsSection } from "@/components/employees/individual-settings/employee-hr-documents-section";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
 import { EmployeeActivityTab } from "@/components/employees/individual-settings/employee-activity-tab";
-import { Link2, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
+import { CopyEmployeePortalLinkButton } from "@/components/employees/copy-employee-portal-link-button";
 import { useRouter } from "next/navigation";
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -162,19 +163,17 @@ export default function EmployeeDetailPage({ params }: PageProps) {
             {/* Portal notification + copy link — HR Admin / Super Admin only */}
             {viewerRole && ["HR_ADMIN", "SUPER_ADMIN"].includes(viewerRole) && (
               <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  title="Copy portal login link — employee logs in with their registered phone number"
-                  onClick={async () => {
-                    const url = `${window.location.origin}/employee/login`;
-                    await navigator.clipboard.writeText(url);
+                <CopyEmployeePortalLinkButton
+                  employeeId={id}
+                  onSuccess={(message) => {
                     setToastVariant("success");
-                    setToast("Portal link copied — employee logs in with their phone number");
+                    setToast(message);
                   }}
-                >
-                  <Link2 className="h-4 w-4" />
-                </Button>
+                  onError={(message) => {
+                    setToastVariant("error");
+                    setToast(message);
+                  }}
+                />
                 <SendPortalNotificationButton
                   employeeId={id}
                   employeeName={formatEmployeeName(

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import { CheckCircle2 } from "lucide-react";
 import type { OnboardingTaskStep, OnboardingTasksPayload } from "@/lib/onboarding/task-types";
 import { flattenResponseEntries } from "@/lib/onboarding/task-types";
@@ -118,7 +119,7 @@ export function EmployeeOnboardingProgressSection({
                   </td>
                   <td className="px-3 py-2 text-xs text-muted-foreground">
                     {step.completedAt
-                      ? format(new Date(step.completedAt), "MMM d, yyyy")
+                      ? formatDisplayDate(step.completedAt)
                       : "—"}
                   </td>
                   <td className="px-3 py-2">

@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { formatDisplayDate } from "@/lib/dates";
 import { Download, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -65,7 +66,7 @@ export function EmployeeHrDocsSection({ employeeId }: { employeeId?: string }) {
                       <p className="text-xs text-muted-foreground">{meta.subtitle}</p>
                     </td>
                     <td className="py-3 text-xs text-muted-foreground">
-                      {format(new Date(doc.generatedAt), "MMM d, yyyy")}
+                      {formatDisplayDate(doc.generatedAt)}
                     </td>
                     <td className="py-3 text-right">
                       <Button
