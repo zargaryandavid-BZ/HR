@@ -38,9 +38,26 @@ export async function getTotalHoursFromTimeEntries(employeeId: string): Promise<
   return entries.reduce((sum, e) => sum + (e.hoursWorked ?? 0), 0);
 }
 
+/** Estimate hours from hire date × weekly schedule (Mon–Fri, etc.) */
+export function estimateHoursFromSchedule(
+  startDate: Date,
+  scheduleType: ScheduleType,
+  scheduleConfig: unknown,
+  asOf: Date = new Date()
+): number {
+  const daysEmployed = Math.floor(
+    (asOf.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  if (daysEmployed <= 0) return 0;
+
+  const weeklyHours = getWeeklyScheduledHours(scheduleType, scheduleConfig);
+  return (daysEmployed / 7) * weeklyHours;
+}
+
 /**
- * Hours available for accrual — actual time entries when present,
- * otherwise estimated from weekly schedule × weeks employed.
+ * Hours available for accrual.
+ * Uses clock entries when they reflect most of expected tenure; otherwise falls back
+ * to schedule estimate so long-tenured employees aren't stuck at 0 when clock history is sparse.
  */
 export async function resolveHoursWorkedForAccrual(employeeId: string): Promise<number> {
   const employee = await prisma.employee.findUnique({
@@ -52,22 +69,21 @@ export async function resolveHoursWorkedForAccrual(employeeId: string): Promise<
     },
   });
 
-  if (!employee) return 0;
+  if (!employee?.startDate) return 0;
 
-  const fromEntries = await getTotalHoursFromTimeEntries(employeeId);
-  if (fromEntries > 0) return fromEntries;
-
-  if (!employee.startDate) return 0;
-
-  const daysEmployed = Math.floor(
-    (Date.now() - employee.startDate.getTime()) / (1000 * 60 * 60 * 24)
-  );
-  if (daysEmployed <= 0) return 0;
-
-  const weeklyHours = getWeeklyScheduledHours(
+  const scheduleEstimate = estimateHoursFromSchedule(
+    employee.startDate,
     employee.scheduleType,
     employee.scheduleConfig
   );
-  const weeksEmployed = daysEmployed / 7;
-  return weeksEmployed * weeklyHours;
+
+  const fromEntries = await getTotalHoursFromTimeEntries(employeeId);
+  if (fromEntries <= 0) return scheduleEstimate;
+
+  // Sparse clock data (e.g. only a few recent punches) should not block tenure-based accrual
+  if (scheduleEstimate > 0 && fromEntries < scheduleEstimate * 0.8) {
+    return scheduleEstimate;
+  }
+
+  return fromEntries;
 }

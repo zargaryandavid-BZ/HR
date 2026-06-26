@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { EmployeeDocumentStatusItem } from "@/lib/individual-settings/constants";
+import { isDocumentHrConfirmed } from "@/lib/individual-settings/constants";
 import { cn } from "@/lib/utils";
 
 type OffboardingResponse = {
@@ -76,7 +77,7 @@ export function EmployeeOffboardingSection({
   const autoAssigned = data?.autoAssigned ?? [];
   const manuallyAssigned = data?.manuallyAssigned ?? [];
   const allDocs = [...autoAssigned, ...manuallyAssigned];
-  const unsentCount = allDocs.filter((doc) => !doc.assignmentSentAt).length;
+  const sendableCount = allDocs.filter((doc) => !isDocumentHrConfirmed(doc.status)).length;
   const hasStarted = Boolean(data?.instance) || employeeStatus === "INACTIVE";
   const instanceLastDay = data?.instance?.lastDayDate
     ? data.instance.lastDayDate.slice(0, 10)
@@ -105,7 +106,7 @@ export function EmployeeOffboardingSection({
           <Button
             type="button"
             size="sm"
-            disabled={unsentCount === 0}
+            disabled={sendableCount === 0}
             onClick={() => setSendOpen(true)}
           >
             <Send className="h-4 w-4 mr-1" />

@@ -1,13 +1,21 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { apiSuccess, apiError } from "@/lib/api-response";
-import { sendUnsentOffboardingDocuments } from "@/lib/offboarding/assignments";
+import {
+  listSendableOffboardingDocuments,
+  sendSelectedOffboardingDocuments,
+} from "@/lib/offboarding/assignments";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
-/** Send all unsent offboarding documents to the employee portal */
-export async function POST(_request: NextRequest, { params }: RouteParams) {
+const postSchema = z.object({
+  documentIds: z.array(z.string().min(1)).min(1, "Select at least one document"),
+});
+
+/** Send selected offboarding documents to the employee portal */
+export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getSession();
     if (!session) return apiError("Unauthorized", "Not authenticated", 401);
@@ -16,6 +24,11 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     }
 
     const { id: employeeId } = await params;
+    const body = await request.json();
+    const parsed = postSchema.safeParse(body);
+    if (!parsed.success) {
+      return apiError("Validation failed", parsed.error.errors[0]?.message ?? "Invalid request");
+    }
 
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
@@ -23,10 +36,14 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     });
     if (!employee) return apiError("Not found", "Employee not found", 404);
 
-    const result = await sendUnsentOffboardingDocuments(employeeId, session.id);
+    const result = await sendSelectedOffboardingDocuments(
+      employeeId,
+      parsed.data.documentIds,
+      session.id
+    );
 
     if (result.sent === 0) {
-      return apiError("Validation failed", "All offboarding documents have already been sent");
+      return apiError("Validation failed", "No eligible documents to send");
     }
 
     return Response.json(
@@ -41,7 +58,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
   }
 }
 
-/** List unsent offboarding documents for the send confirmation dialog */
+/** List non-HR-approved offboarding documents for the send dialog */
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getSession();
@@ -52,30 +69,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
     const { id: employeeId } = await params;
 
-    const unsent = await prisma.documentAssignment.findMany({
-      where: {
-        employeeId,
-        isOffboarding: true,
-        offboardingSentAt: null,
-        sop: { isActive: true, status: "ACTIVE" },
-      },
-      include: {
-        sop: { select: { id: true, title: true, documentType: true } },
-      },
-      orderBy: { sop: { title: "asc" } },
-    });
+    const sendable = await listSendableOffboardingDocuments(employeeId);
 
-    return Response.json(
-      apiSuccess(
-        unsent.map((row) => ({
-          id: row.sop.id,
-          title: row.sop.title,
-          documentType: row.sop.documentType,
-        }))
-      )
-    );
+    return Response.json(apiSuccess(sendable));
   } catch (error) {
-    console.error("List unsent offboarding docs error:", error);
-    return apiError("Server error", "Failed to fetch unsent documents", 500);
+    console.error("List sendable offboarding docs error:", error);
+    return apiError("Server error", "Failed to fetch documents", 500);
   }
 }

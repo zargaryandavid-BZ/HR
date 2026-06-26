@@ -6,17 +6,18 @@ import { logLeaveAudit, notifyLeaveStatusChange } from "@/lib/leave/service";
 import { resolveLeaveRequestDuration } from "@/lib/leave/resolve-request-duration";
 import { applyLeaveUsageToBalance } from "@/lib/leave/balance-usage";
 import { syncAccrualBalancesFromHoursWorked } from "@/lib/accrual/sync-balance";
+import { HOURS_PER_WORK_DAY } from "@/lib/accrual/constants";
 import { z } from "zod";
 
 const createSchema = z.object({
   employeeId: z.string(),
   leaveTypeId: z.string(),
   startDate: z.string(),
-  endDate: z.string(),
+  endDate: z.string().optional(),
   note: z.string().optional(),
   autoApprove: z.boolean().default(true),
   requestMode: z.enum(["days", "hours"]).optional(),
-  durationHours: z.coerce.number().positive().max(8).optional(),
+  durationHours: z.coerce.number().positive().max(HOURS_PER_WORK_DAY).optional(),
 });
 
 /** Returns all leave requests with employee + leave type joined, with filtering */
@@ -163,19 +164,24 @@ export async function POST(req: Request) {
 
     const { employeeId, leaveTypeId, startDate, endDate, note, autoApprove, requestMode, durationHours } =
       parsed.data;
+    const mode = requestMode ?? (durationHours != null ? "hours" : "days");
+    const resolvedEndDate = mode === "hours" ? (endDate ?? startDate) : endDate;
+    if (!resolvedEndDate) {
+      return apiError("Validation error", "End date is required", 400);
+    }
 
     const holidays = await prisma.holiday.findMany({
       where: {
         date: {
           gte: parseFormDate(startDate),
-          lte: parseFormDate(endDate),
+          lte: parseFormDate(resolvedEndDate),
         },
         OR: [{ isCompanyWide: true }, { employeeId }],
       },
     });
 
     const duration = resolveLeaveRequestDuration(
-      { startDate, endDate, requestMode, durationHours },
+      { startDate, endDate: resolvedEndDate, requestMode: mode, durationHours },
       holidays.map((h) => h.date)
     );
     if ("error" in duration) {
@@ -226,7 +232,16 @@ export async function POST(req: Request) {
       userId: session.id,
       action: "LEAVE_REQUESTED",
       targetId: request.id,
-      newValue: { employeeId, leaveTypeId, startDate, endDate, workingDays, autoApprove },
+      newValue: {
+        employeeId,
+        leaveTypeId,
+        startDate,
+        endDate: resolvedEndDate,
+        requestMode: mode,
+        durationHours: duration.workingHours,
+        workingDays,
+        autoApprove,
+      },
     });
 
     if (autoApprove) {

@@ -106,7 +106,7 @@ export function EmployeeDocumentsSection({
   const isEmpty = totalDocs === 0;
   const isAdmin = mode === "admin";
   const allDocs = [...companyWide, ...assigned];
-  const unsentCount = allDocs.filter((doc) => !doc.assignmentSentAt).length;
+  const sendableCount = allDocs.filter((doc) => !isDocumentHrConfirmed(doc.status)).length;
   const hasManualAssignment = allDocs.some((doc) => doc.assignedManually);
   const anySent = allDocs.some((doc) => doc.assignmentSentAt);
   const showNoAutomationBanner =
@@ -134,8 +134,8 @@ export function EmployeeDocumentsSection({
             <Button
               type="button"
               size="sm"
-              disabled={unsentCount === 0}
-              title={unsentCount === 0 ? "All documents already sent" : undefined}
+              disabled={sendableCount === 0}
+              title={sendableCount === 0 ? "All documents are HR approved" : undefined}
               onClick={() => setSendOpen(true)}
             >
               <Send className="h-4 w-4 mr-1" />

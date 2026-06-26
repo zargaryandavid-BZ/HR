@@ -1,10 +1,15 @@
 import type { AccrualPolicy } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hoursToAllowanceDays, ensureAccrualBalance } from "@/lib/accrual";
-import type { AccrualLeaveSlug } from "@/lib/accrual/constants";
 import { resolveHoursWorkedForAccrual } from "@/lib/accrual/hours-estimate";
+import { resolveAccrualPolicy } from "@/lib/accrual/resolve-policy";
 
-function calculateEarnedHours(totalHoursWorked: number, policy: AccrualPolicy): number {
+type AccrualPolicyLike = Pick<
+  AccrualPolicy,
+  "hoursWorkedPerAccrual" | "hoursEarnedPerAccrual" | "ptoAccrualCapHours" | "sickAccrualCapHours"
+>;
+
+function calculateEarnedHours(totalHoursWorked: number, policy: AccrualPolicyLike): number {
   return (totalHoursWorked / policy.hoursWorkedPerAccrual) * policy.hoursEarnedPerAccrual;
 }
 
@@ -18,9 +23,9 @@ export async function syncAccrualBalancesFromHoursWorked(employeeId: string): Pr
     select: { position: { include: { accrualPolicy: true } } },
   });
 
-  const policy = employee?.position?.accrualPolicy;
-  if (!policy) return;
+  if (!employee) return;
 
+  const policy = resolveAccrualPolicy(employee);
   const hoursWorked = await resolveHoursWorkedForAccrual(employeeId);
   if (hoursWorked <= 0) return;
 

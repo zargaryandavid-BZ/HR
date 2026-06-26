@@ -4,6 +4,10 @@ import { logDocumentAudit } from "@/lib/documents/service";
 import { extractFlowDocumentIds } from "@/lib/onboarding/flow-documents";
 import { formatEmployeeName } from "@/lib/utils";
 import { createEmployeeNotification } from "@/lib/notifications";
+import {
+  getEmployeeDocumentsWithStatus,
+} from "@/lib/individual-settings/documents";
+import { isDocumentHrConfirmed } from "@/lib/individual-settings/constants";
 
 const activeDocFilter = { isActive: true, status: "ACTIVE" as const };
 
@@ -104,6 +108,56 @@ export async function sendUnsentOnboardingDocuments(
   employeeId: string,
   sentByUserId: string
 ): Promise<{ sent: number; employeeName: string }> {
+  const docs = await listSendableOnboardingDocuments(employeeId, sentByUserId);
+  const unsentIds = docs.filter((doc) => !doc.alreadySent).map((doc) => doc.id);
+  if (!unsentIds.length) {
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { firstName: true, lastName: true, preferredName: true },
+    });
+    return {
+      sent: 0,
+      employeeName: employee
+        ? formatEmployeeName(employee.firstName, employee.lastName, employee.preferredName)
+        : "Employee",
+    };
+  }
+  return sendSelectedOnboardingDocuments(employeeId, unsentIds, sentByUserId);
+}
+
+export type SendableOnboardingDocument = {
+  id: string;
+  assignmentId: string | null;
+  title: string;
+  status: string;
+  alreadySent: boolean;
+};
+
+/** Documents not yet HR-approved — eligible for send-for-signature */
+export async function listSendableOnboardingDocuments(
+  employeeId: string,
+  assignedByUserId: string
+): Promise<SendableOnboardingDocument[]> {
+  await syncEmployeeDocumentAssignments(employeeId, assignedByUserId);
+
+  const docs = await getEmployeeDocumentsWithStatus(employeeId);
+  return [...docs.companyWide, ...docs.assigned]
+    .filter((doc) => !isDocumentHrConfirmed(doc.status))
+    .map((doc) => ({
+      id: doc.id,
+      assignmentId: doc.assignmentId,
+      title: doc.title,
+      status: doc.status,
+      alreadySent: Boolean(doc.assignmentSentAt),
+    }));
+}
+
+/** Send selected onboarding documents to the employee portal for signature */
+export async function sendSelectedOnboardingDocuments(
+  employeeId: string,
+  documentIds: string[],
+  sentByUserId: string
+): Promise<{ sent: number; employeeName: string }> {
   await syncEmployeeDocumentAssignments(employeeId, sentByUserId);
 
   const employee = await prisma.employee.findUnique({
@@ -115,40 +169,33 @@ export async function sendUnsentOnboardingDocuments(
     throw new Error("Employee not found");
   }
 
-  const unsent = await prisma.documentAssignment.findMany({
-    where: {
-      employeeId,
-      isOffboarding: false,
-      sentAt: null,
-      sop: activeDocFilter,
-    },
-    select: { id: true },
-  });
-
-  if (!unsent.length) {
-    return {
-      sent: 0,
-      employeeName: formatEmployeeName(
-        employee.firstName,
-        employee.lastName,
-        employee.preferredName
-      ),
-    };
-  }
-
-  const now = new Date();
-
-  await prisma.documentAssignment.updateMany({
-    where: { id: { in: unsent.map((row) => row.id) } },
-    data: { sentAt: now },
-  });
-
-  const count = unsent.length;
   const employeeName = formatEmployeeName(
     employee.firstName,
     employee.lastName,
     employee.preferredName
   );
+
+  const docs = await getEmployeeDocumentsWithStatus(employeeId);
+  const selected = [...docs.companyWide, ...docs.assigned].filter(
+    (doc) => documentIds.includes(doc.id) && !isDocumentHrConfirmed(doc.status)
+  );
+
+  const assignmentIds = selected
+    .map((doc) => doc.assignmentId)
+    .filter((id): id is string => Boolean(id));
+
+  if (!assignmentIds.length) {
+    return { sent: 0, employeeName };
+  }
+
+  const now = new Date();
+
+  await prisma.documentAssignment.updateMany({
+    where: { id: { in: assignmentIds } },
+    data: { sentAt: now },
+  });
+
+  const count = assignmentIds.length;
 
   await createEmployeeNotification({
     employeeId,
@@ -162,7 +209,7 @@ export async function sendUnsentOnboardingDocuments(
     action: "ONBOARDING_DOCS_SENT",
     targetId: employeeId,
     targetTable: "Employee",
-    newValue: { employeeId, count, sentById: sentByUserId },
+    newValue: { employeeId, count, documentIds: selected.map((d) => d.id), sentById: sentByUserId },
   });
 
   return { sent: count, employeeName };

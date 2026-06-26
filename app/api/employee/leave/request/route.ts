@@ -8,14 +8,15 @@ import { validateAccruedLeaveEligibility } from "@/lib/accrual/leave-validation"
 import { notifyLeaveRequestSubmitted } from "@/lib/leave/service";
 import { resolveLeaveRequestDuration } from "@/lib/leave/resolve-request-duration";
 import { validateLeaveBalanceForRequest } from "@/lib/leave/balance-validation";
+import { HOURS_PER_WORK_DAY } from "@/lib/accrual/constants";
 
 const schema = z.object({
   leaveTypeId: z.string().min(1),
   startDate: z.string(),
-  endDate: z.string(),
+  endDate: z.string().optional(),
   notes: z.string().optional(),
   requestMode: z.enum(["days", "hours"]).optional(),
-  durationHours: z.coerce.number().positive().max(8).optional(),
+  durationHours: z.coerce.number().positive().max(HOURS_PER_WORK_DAY).optional(),
 });
 
 /** Submit a leave request on behalf of the authenticated employee */
@@ -29,6 +30,11 @@ export async function POST(request: NextRequest) {
     if (!parsed.success) return apiError("Validation failed", parsed.error.errors[0]?.message);
 
     const { leaveTypeId, startDate, endDate, notes, requestMode, durationHours } = parsed.data;
+    const mode = requestMode ?? (durationHours != null ? "hours" : "days");
+    const resolvedEndDate = mode === "hours" ? (endDate ?? startDate) : endDate;
+    if (!resolvedEndDate) {
+      return apiError("Validation failed", "End date is required");
+    }
 
     const today = parseFormDate(toDateOnlyString(new Date()));
     const start = parseFormDate(startDate);
@@ -56,7 +62,7 @@ export async function POST(request: NextRequest) {
       where: {
         date: {
           gte: parseFormDate(startDate),
-          lte: parseFormDate(endDate),
+          lte: parseFormDate(resolvedEndDate),
         },
         OR: [{ isCompanyWide: true }, { employeeId: session.employeeId }],
       },
@@ -64,7 +70,7 @@ export async function POST(request: NextRequest) {
     });
 
     const duration = resolveLeaveRequestDuration(
-      { startDate, endDate, requestMode, durationHours },
+      { startDate, endDate: resolvedEndDate, requestMode: mode, durationHours },
       holidays.map((h) => h.date)
     );
     if ("error" in duration) {

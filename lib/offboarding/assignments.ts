@@ -6,6 +6,8 @@ import { logDocumentAudit } from "@/lib/documents/service";
 import { createEmployeeNotification } from "@/lib/notifications";
 import { formatEmployeeName } from "@/lib/utils";
 import { extractOffboardingFlowDocumentIds } from "@/lib/offboarding/flow-documents";
+import { getEmployeeOffboardingDocuments } from "@/lib/individual-settings/offboarding-documents";
+import { isDocumentHrConfirmed } from "@/lib/individual-settings/constants";
 
 const activeDocFilter = { isActive: true, status: "ACTIVE" as const };
 
@@ -127,6 +129,53 @@ export async function sendUnsentOffboardingDocuments(
   employeeId: string,
   sentByUserId: string
 ): Promise<{ sent: number; employeeName: string }> {
+  const docs = await listSendableOffboardingDocuments(employeeId);
+  const unsentIds = docs.filter((doc) => !doc.alreadySent).map((doc) => doc.id);
+  if (!unsentIds.length) {
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { firstName: true, lastName: true, preferredName: true },
+    });
+    return {
+      sent: 0,
+      employeeName: employee
+        ? formatEmployeeName(employee.firstName, employee.lastName, employee.preferredName)
+        : "Employee",
+    };
+  }
+  return sendSelectedOffboardingDocuments(employeeId, unsentIds, sentByUserId);
+}
+
+export type SendableOffboardingDocument = {
+  id: string;
+  assignmentId: string | null;
+  title: string;
+  status: string;
+  alreadySent: boolean;
+};
+
+/** Offboarding documents not yet HR-approved */
+export async function listSendableOffboardingDocuments(
+  employeeId: string
+): Promise<SendableOffboardingDocument[]> {
+  const docs = await getEmployeeOffboardingDocuments(employeeId);
+  return [...docs.autoAssigned, ...docs.manuallyAssigned]
+    .filter((doc) => !isDocumentHrConfirmed(doc.status))
+    .map((doc) => ({
+      id: doc.id,
+      assignmentId: doc.assignmentId,
+      title: doc.title,
+      status: doc.status,
+      alreadySent: Boolean(doc.assignmentSentAt),
+    }));
+}
+
+/** Send selected offboarding documents to the employee portal */
+export async function sendSelectedOffboardingDocuments(
+  employeeId: string,
+  documentIds: string[],
+  sentByUserId: string
+): Promise<{ sent: number; employeeName: string }> {
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
     select: { firstName: true, lastName: true, preferredName: true },
@@ -136,34 +185,33 @@ export async function sendUnsentOffboardingDocuments(
     throw new Error("Employee not found");
   }
 
-  const unsent = await prisma.documentAssignment.findMany({
-    where: {
-      employeeId,
-      isOffboarding: true,
-      offboardingSentAt: null,
-      sop: activeDocFilter,
-    },
-    select: { id: true },
-  });
-
   const employeeName = formatEmployeeName(
     employee.firstName,
     employee.lastName,
     employee.preferredName
   );
 
-  if (!unsent.length) {
+  const docs = await getEmployeeOffboardingDocuments(employeeId);
+  const selected = [...docs.autoAssigned, ...docs.manuallyAssigned].filter(
+    (doc) => documentIds.includes(doc.id) && !isDocumentHrConfirmed(doc.status)
+  );
+
+  const assignmentIds = selected
+    .map((doc) => doc.assignmentId)
+    .filter((id): id is string => Boolean(id));
+
+  if (!assignmentIds.length) {
     return { sent: 0, employeeName };
   }
 
   const now = new Date();
 
   await prisma.documentAssignment.updateMany({
-    where: { id: { in: unsent.map((row) => row.id) } },
+    where: { id: { in: assignmentIds } },
     data: { offboardingSentAt: now },
   });
 
-  const count = unsent.length;
+  const count = assignmentIds.length;
 
   await createEmployeeNotification({
     employeeId,
@@ -177,7 +225,7 @@ export async function sendUnsentOffboardingDocuments(
     action: "OFFBOARDING_DOCS_SENT",
     targetId: employeeId,
     targetTable: "Employee",
-    newValue: { employeeId, count, sentById: sentByUserId },
+    newValue: { employeeId, count, documentIds: selected.map((d) => d.id), sentById: sentByUserId },
   });
 
   return { sent: count, employeeName };
