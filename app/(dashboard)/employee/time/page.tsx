@@ -1,8 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { format, formatDuration, intervalToDuration } from "date-fns";
+import { format } from "date-fns";
 import { formatDisplayWeekdayDate } from "@/lib/dates";
+import { formatHoursAsHm, formatMinutesAsHm } from "@/lib/time/hours-worked";
 import { PageHeader, EmptyState } from "@/components/shared/page-header";
 import { EmployeeClockWidget } from "@/components/employee-portal/employee-clock-widget";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,9 +36,11 @@ const STATUS_COLOR: Record<string, string> = {
   FLAGGED:     "bg-red-100 text-red-700",
 };
 
-function hoursLabel(h: number): string {
-  const d = intervalToDuration({ start: 0, end: Math.round(h * 3600) * 1000 });
-  return formatDuration({ hours: d.hours, minutes: d.minutes }, { format: ["hours", "minutes"] }) || "0m";
+function breakDurationMin(brk: BreakEntry): number | null {
+  if (brk.durationMin != null) return Math.round(brk.durationMin);
+  if (!brk.endedAt) return null;
+  const ms = new Date(brk.endedAt).getTime() - new Date(brk.startedAt).getTime();
+  return ms > 0 ? Math.round(ms / 60000) : null;
 }
 
 export default function EmployeeTimePage() {
@@ -68,9 +71,10 @@ export default function EmployeeTimePage() {
       ) : (
         <div className="space-y-2">
           {entries.map((entry) => {
-            const totalBreakMin = entry.breaks
-              .filter((b) => b.durationMin != null)
-              .reduce((s, b) => s + (b.durationMin ?? 0), 0);
+            const totalBreakMin = entry.breaks.reduce(
+              (s, b) => s + (breakDurationMin(b) ?? 0),
+              0
+            );
 
             return (
               <Card key={entry.id}>
@@ -91,7 +95,7 @@ export default function EmployeeTimePage() {
                         {" → "}
                         {entry.clockOut ? format(new Date(entry.clockOut), "h:mm a") : "In progress"}
                         {totalBreakMin > 0 && (
-                          <span className="ml-2">· {Math.round(totalBreakMin)}m break</span>
+                          <span className="ml-2">· {formatMinutesAsHm(totalBreakMin)} break</span>
                         )}
                       </p>
                       {entry.breaks.length > 0 && (
@@ -99,7 +103,9 @@ export default function EmployeeTimePage() {
                           {entry.breaks.map((b) => (
                             <span key={b.id} className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
                               {b.breakType === "MEAL" ? "🍽 Lunch" : "☕ Rest"}
-                              {b.durationMin != null ? ` ${Math.round(b.durationMin)}m` : " (open)"}
+                              {b.durationMin != null || b.endedAt
+                                ? ` ${formatMinutesAsHm(breakDurationMin(b) ?? 0)}`
+                                : " (open)"}
                             </span>
                           ))}
                         </div>
@@ -107,7 +113,7 @@ export default function EmployeeTimePage() {
                     </div>
                     {entry.hoursWorked != null && (
                       <div className="text-right shrink-0">
-                        <p className="text-lg font-semibold">{hoursLabel(entry.hoursWorked)}</p>
+                        <p className="text-lg font-semibold">{formatHoursAsHm(entry.hoursWorked)}</p>
                         <p className="text-xs text-muted-foreground">worked</p>
                       </div>
                     )}

@@ -128,6 +128,6 @@ async function handleImpersonation(request: NextRequest, token: string): Promise
 export const config = {
   // api/employee/auth (including validate-session) is excluded to prevent loops
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/kiosk|kiosk|api/employee/auth|api/docs|api/admin/employee/impersonate/validate).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/kiosk|kiosk|api/employee/auth|api/docs|api/admin/employee/impersonate/validate|candidate|api/candidate).*)",
   ],
 };

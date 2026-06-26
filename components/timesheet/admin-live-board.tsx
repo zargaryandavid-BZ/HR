@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { formatElapsed } from "@/lib/time/hours-worked";
+import { formatSecondsAsHm, formatHoursAsHm, formatMinutesAsHm } from "@/lib/time/hours-worked";
 import { TimeEntryEditModal } from "./time-entry-edit-modal";
 
 type LiveEmployee = {
@@ -379,7 +379,7 @@ export function AdminLiveBoard() {
                             : "—"}
                         </td>
                         <td className="px-4 py-2">
-                          {entry.hoursWorked != null ? entry.hoursWorked.toFixed(2) : "—"}
+                          {entry.hoursWorked != null ? formatHoursAsHm(entry.hoursWorked) : "—"}
                         </td>
                         <td className="px-4 py-2 text-sm text-muted-foreground">
                           {(() => {
@@ -391,11 +391,8 @@ export function AdminLiveBoard() {
                               (sum, b) => sum + (b.durationMin ?? 0),
                               0
                             );
-                            const h = Math.floor(totalMin / 60);
-                            const m = totalMin % 60;
-                            const durationLabel = totalMin > 0
-                              ? (h > 0 ? `${h}h ${m}m` : `${m}m`)
-                              : null;
+                            const durationLabel =
+                              totalMin > 0 ? formatMinutesAsHm(totalMin) : null;
                             const countLabel = `${breaks.length} break${breaks.length !== 1 ? "s" : ""}`;
                             return (
                               <span className="flex flex-col gap-0.5">
@@ -494,13 +491,13 @@ export function AdminLiveBoard() {
                       <p className="text-sm font-medium truncate">{emp.name}</p>
                       <p className="text-xs text-muted-foreground truncate">
                         {emp.isOnBreak
-                          ? `On break · ${formatElapsed(emp.breakElapsed)}`
+                          ? `On break · ${formatSecondsAsHm(emp.breakElapsed)}`
                           : (emp.department ?? emp.position ?? "—")}
                       </p>
                     </div>
                     {emp.isClockedIn && (
                       <span className="text-xs font-mono text-muted-foreground shrink-0">
-                        {formatElapsed(emp.elapsed)}
+                        {formatSecondsAsHm(emp.elapsed)}
                       </span>
                     )}
                   </button>

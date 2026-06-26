@@ -14,6 +14,7 @@ import {
   UserPlus,
   UserMinus,
   ScanLine,
+  Briefcase,
 } from "lucide-react";
 import { Role } from "@prisma/client";
 
@@ -147,6 +148,12 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Users,
     roles: ["HR_ADMIN", "SUPER_ADMIN"],
     inlineCountPath: "/api/employees/count",
+  },
+  {
+    label: "Job Offers",
+    href: "/admin/offers",
+    icon: Briefcase,
+    roles: ["HR_ADMIN", "SUPER_ADMIN"],
   },
   {
     label: "Leave Requests",

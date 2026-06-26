@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmployeeDashboardSection } from "./employee-dashboard-section";
 import { ChevronDown } from "lucide-react";
+import { formatHoursAsHm, formatMinutesAsHm } from "@/lib/time/hours-worked";
 
 type BreakRecord = {
   id: string;
@@ -33,19 +34,17 @@ function fmtTime(iso: string): string {
   return format(parseISO(iso), "h:mm a");
 }
 
-function fmtHours(hours: number): string {
-  const h = Math.floor(hours);
-  const m = Math.round((hours - h) * 60);
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
+function breakDurationMin(brk: BreakRecord): number | null {
+  if (brk.durationMin != null) return Math.round(brk.durationMin);
+  if (!brk.endedAt) return null;
+  const ms = parseISO(brk.endedAt).getTime() - parseISO(brk.startedAt).getTime();
+  return ms > 0 ? Math.round(ms / 60000) : null;
 }
 
-function fmtDuration(min: number): string {
-  if (min < 60) return `${min}m`;
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+function formatBreakDuration(brk: BreakRecord): string | null {
+  const minutes = breakDurationMin(brk);
+  if (minutes == null) return null;
+  return formatMinutesAsHm(minutes);
 }
 
 // ─── Today's Timeline ────────────────────────────────────────────────────────
@@ -130,7 +129,14 @@ function TodayTimeline({ entry }: { entry: TimeEntry }) {
           const typeLabel = evt.breakType === "MEAL" ? "Meal Break" : "Rest Break";
           if (evt.endedAt) {
             label = typeLabel;
-            sub = `${fmtTime(evt.startedAt)} → ${fmtTime(evt.endedAt)}${evt.durationMin != null ? ` · ${fmtDuration(evt.durationMin)}` : ""}`;
+            const duration = formatBreakDuration({
+              id: "",
+              breakType: evt.breakType,
+              startedAt: evt.startedAt,
+              endedAt: evt.endedAt,
+              durationMin: evt.durationMin,
+            });
+            sub = `${fmtTime(evt.startedAt)} → ${fmtTime(evt.endedAt)}${duration ? ` · ${duration}` : ""}`;
           } else {
             label = `${typeLabel} started · ${fmtTime(evt.startedAt)}`;
             sub = "In progress";
@@ -180,10 +186,13 @@ function ShiftRow({ entry }: { entry: TimeEntry }) {
   const dateLabel = formatDisplayDateWithWeekday(entry.clockIn);
   const clockInTime = fmtTime(entry.clockIn);
   const clockOutTime = entry.clockOut ? fmtTime(entry.clockOut) : "—";
-  const hoursLabel = entry.hoursWorked != null ? fmtHours(entry.hoursWorked) : null;
+  const hoursLabel = entry.hoursWorked != null ? formatHoursAsHm(entry.hoursWorked) : null;
 
   const completedBreaks = entry.breaks.filter((b) => b.endedAt != null);
-  const totalBreakMin = completedBreaks.reduce((acc, b) => acc + (b.durationMin ?? 0), 0);
+  const totalBreakMin = completedBreaks.reduce(
+    (acc, b) => acc + (breakDurationMin(b) ?? 0),
+    0
+  );
   const breakCount = entry.breaks.length;
 
   return (
@@ -206,7 +215,7 @@ function ShiftRow({ entry }: { entry: TimeEntry }) {
           )}
           {breakCount > 0 && (
             <span className="text-xs text-muted-foreground shrink-0">
-              {breakCount} break{breakCount !== 1 ? "s" : ""}{totalBreakMin > 0 ? ` · ${fmtDuration(totalBreakMin)} total` : ""}
+              {breakCount} break{breakCount !== 1 ? "s" : ""}{totalBreakMin > 0 ? ` · ${formatMinutesAsHm(totalBreakMin)} total` : ""}
             </span>
           )}
         </div>
@@ -233,7 +242,7 @@ function ShiftRow({ entry }: { entry: TimeEntry }) {
               <span className="text-muted-foreground">
                 {fmtTime(brk.startedAt)}
                 {brk.endedAt ? ` → ${fmtTime(brk.endedAt)}` : " (open)"}
-                {brk.durationMin != null ? ` · ${fmtDuration(brk.durationMin)}` : ""}
+                {formatBreakDuration(brk) ? ` · ${formatBreakDuration(brk)}` : ""}
               </span>
             </div>
           ))}

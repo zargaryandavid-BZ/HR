@@ -9,7 +9,25 @@ export function elapsedSeconds(from: Date): number {
   return Math.floor((Date.now() - from.getTime()) / 1000);
 }
 
-/** Format seconds as HH:MM:SS */
+/** Format total minutes as Xh:XXm (e.g. 1h:12m) */
+export function formatMinutesAsHm(totalMinutes: number): string {
+  const rounded = Math.round(totalMinutes);
+  const h = Math.floor(rounded / 60);
+  const m = Math.abs(rounded % 60);
+  return `${h}h:${String(m).padStart(2, "0")}m`;
+}
+
+/** Format decimal hours as Xh:XXm */
+export function formatHoursAsHm(hours: number): string {
+  return formatMinutesAsHm(hours * 60);
+}
+
+/** Format elapsed seconds as Xh:XXm */
+export function formatSecondsAsHm(seconds: number): string {
+  return formatMinutesAsHm(seconds / 60);
+}
+
+/** Format seconds as HH:MM:SS (live clocks with second precision) */
 export function formatElapsed(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);

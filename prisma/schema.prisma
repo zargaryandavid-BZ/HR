@@ -103,6 +103,22 @@ enum YearEndRolloverPolicy {
   CASH_OUT
 }
 
+enum JobOfferStatus {
+  DRAFT
+  SENT
+  VIEWED
+  APPROVED
+  DECLINED
+  INTAKE_COMPLETE
+  CONVERTED
+}
+
+enum WorkType {
+  REMOTE
+  ONSITE
+  HYBRID
+}
+
 enum SopStatus {
   ACTIVE
   ARCHIVED
@@ -862,4 +878,58 @@ model CompanySettings {
   updatedById             String?
   updatedBy                 User?                 @relation("UpdatedByUser", fields: [updatedById], references: [id])
   updatedAt               DateTime              @updatedAt
+}
+
+model JobOffer {
+  id             String          @id @default(cuid())
+  candidateFirst String
+  candidateLast  String
+  candidateEmail String
+  jobTitle       String
+  positionId     String?
+  departmentId   String?
+  payType        PayType
+  payRate        Float?
+  payFrequency   PayFrequency?
+  startDate      DateTime
+  workType       WorkType
+  notes          String?
+  status         JobOfferStatus  @default(DRAFT)
+  token          String          @unique @default(cuid())
+  sentAt         DateTime?
+  viewedAt       DateTime?
+  approvedAt     DateTime?
+  declinedAt     DateTime?
+  convertedAt    DateTime?
+  employeeId     String?
+  createdById    String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  intake         CandidateIntakeResponse?
+
+  @@index([status])
+  @@index([createdById])
+}
+
+model CandidateIntakeResponse {
+  id                       String    @id @default(cuid())
+  jobOfferId               String    @unique
+  jobOffer                 JobOffer  @relation(fields: [jobOfferId], references: [id], onDelete: Cascade)
+  phone                    String?
+  personalEmail            String?
+  birthdate                DateTime?
+  addressStreet            String?
+  addressCity              String?
+  addressState             String?
+  addressZip               String?
+  addressCountry           String?
+  emergencyContactName     String?
+  emergencyContactPhone    String?
+  emergencyContactRelation String?
+  emergencyContactConsent  Boolean   @default(false)
+  tShirtSize               String?
+  allergies                String?
+  idFileUrl                String?
+  idFileName               String?
+  submittedAt              DateTime  @default(now())
 }
