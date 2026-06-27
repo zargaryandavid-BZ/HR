@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Plus, Send, Trash2, UserPlus, ExternalLink, RefreshCw } from "lucide-react";
+import { Plus, Send, Trash2, UserPlus, ExternalLink, RefreshCw, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CreateOfferModal } from "@/components/offers/create-offer-modal";
 import { ConvertOfferModal } from "@/components/offers/convert-offer-modal";
+import { EditOfferModal } from "@/components/offers/edit-offer-modal";
 import {
   Dialog,
   DialogContent,
@@ -27,10 +28,11 @@ type JobOffer = {
   candidateFirst: string;
   candidateLast: string;
   candidateEmail: string;
+  candidatePhone: string | null;
   jobTitle: string;
-  payType: string;
+  payType: "HOURLY" | "SALARY";
   payRate: number | null;
-  payFrequency: string | null;
+  payFrequency: "WEEKLY" | "BIWEEKLY" | "SEMI_MONTHLY" | "MONTHLY" | null;
   startDate: string;
   workType: "REMOTE" | "ONSITE" | "HYBRID";
   notes: string | null;
@@ -73,7 +75,9 @@ export default function AdminOffersPage() {
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [convertOffer, setConvertOffer] = useState<JobOffer | null>(null);
+  const [editOffer, setEditOffer] = useState<JobOffer | null>(null);
   const [deleteOffer, setDeleteOffer] = useState<JobOffer | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [resending, setResending] = useState<string | null>(null);
 
   const { data: offers, isLoading } = useQuery<JobOffer[]>({
@@ -103,15 +107,20 @@ export default function AdminOffersPage() {
 
   async function handleDelete() {
     if (!deleteOffer) return;
-    const res = await fetch(`/api/offers/${deleteOffer.id}`, { method: "DELETE" });
-    const json = await res.json();
-    if (!res.ok) {
-      toast.error(json.message ?? "Failed to delete");
-    } else {
-      toast.success("Draft deleted");
-      qc.invalidateQueries({ queryKey: ["job-offers"] });
+    setDeletingId(deleteOffer.id);
+    try {
+      const res = await fetch(`/api/offers/${deleteOffer.id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.message ?? "Failed to delete");
+      } else {
+        toast.success("Offer deleted");
+        qc.invalidateQueries({ queryKey: ["job-offers"] });
+      }
+    } finally {
+      setDeletingId(null);
+      setDeleteOffer(null);
     }
-    setDeleteOffer(null);
   }
 
   const appUrl = typeof window !== "undefined" ? window.location.origin : "";
@@ -147,9 +156,10 @@ export default function AdminOffersPage() {
         <div className="space-y-3">
           {offers.map((offer) => {
             const statusCfg = STATUS_CONFIG[offer.status] ?? STATUS_CONFIG["DRAFT"];
-            const canResend = ["DRAFT", "SENT", "VIEWED"].includes(offer.status);
+            const canResend = offer.status !== "CONVERTED";
             const canConvert = offer.status === "INTAKE_COMPLETE";
-            const canDelete = offer.status === "DRAFT";
+            const canDelete = true;
+            const canEdit = offer.status !== "CONVERTED";
 
             return (
               <Card key={offer.id} className={cn("transition-colors", offer.status === "INTAKE_COMPLETE" && "border-green-300 bg-green-50/30")}>
@@ -217,6 +227,16 @@ export default function AdminOffersPage() {
                           Convert to Employee
                         </Button>
                       )}
+                      {canEdit && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditOffer(offer)}
+                        >
+                          <Pencil className="h-3.5 w-3.5 mr-1" />
+                          Edit
+                        </Button>
+                      )}
                       {offer.employeeId && (
                         <Button variant="outline" size="sm" asChild>
                           <a href={`/admin/employees/${offer.employeeId}`}>
@@ -235,7 +255,7 @@ export default function AdminOffersPage() {
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       )}
-                      {!canDelete && canResend && (
+                      {canResend && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -260,6 +280,12 @@ export default function AdminOffersPage() {
 
       <CreateOfferModal open={createOpen} onClose={() => setCreateOpen(false)} />
 
+      <EditOfferModal
+        offer={editOffer}
+        open={!!editOffer}
+        onClose={() => setEditOffer(null)}
+      />
+
       <ConvertOfferModal
         offer={convertOffer}
         open={!!convertOffer}
@@ -269,9 +295,9 @@ export default function AdminOffersPage() {
       <Dialog open={!!deleteOffer} onOpenChange={(v) => !v && setDeleteOffer(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Draft Offer?</DialogTitle>
+            <DialogTitle>Delete Offer?</DialogTitle>
             <DialogDescription>
-              This will permanently delete the draft offer for{" "}
+              This will permanently delete the offer for{" "}
               {deleteOffer ? `${deleteOffer.candidateFirst} ${deleteOffer.candidateLast}` : "this candidate"}.
               This cannot be undone.
             </DialogDescription>
@@ -281,8 +307,9 @@ export default function AdminOffersPage() {
             <Button
               variant="destructive"
               onClick={handleDelete}
+              disabled={deletingId === deleteOffer?.id}
             >
-              Delete
+              {deletingId === deleteOffer?.id ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>

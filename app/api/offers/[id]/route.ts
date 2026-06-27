@@ -30,6 +30,7 @@ const updateOfferSchema = z.object({
   candidateFirst: z.string().min(1).optional(),
   candidateLast: z.string().min(1).optional(),
   candidateEmail: z.string().email().optional(),
+  candidatePhone: z.string().nullable().optional(),
   jobTitle: z.string().min(1).optional(),
   positionId: z.string().nullable().optional(),
   departmentId: z.string().nullable().optional(),
@@ -68,11 +69,13 @@ export async function PATCH(
         candidateFirst: parsed.data.candidateFirst,
         candidateLast: parsed.data.candidateLast,
         candidateEmail: parsed.data.candidateEmail,
+        candidatePhone: parsed.data.candidatePhone,
         jobTitle: parsed.data.jobTitle,
         positionId: parsed.data.positionId,
         departmentId: parsed.data.departmentId,
         payType: parsed.data.payType,
         payRate: parsed.data.payRate,
+        payFrequency: parsed.data.payFrequency,
         startDate: parsed.data.startDate ? new Date(parsed.data.startDate) : undefined,
         workType: parsed.data.workType,
         notes: parsed.data.notes,
@@ -96,10 +99,6 @@ export async function DELETE(
 
     const offer = await prisma.jobOffer.findUnique({ where: { id } });
     if (!offer) return apiError("Not found", "Offer not found", 404);
-
-    if (offer.status !== "DRAFT") {
-      return apiError("Forbidden", "Only draft offers can be deleted");
-    }
 
     await prisma.jobOffer.delete({ where: { id } });
     return Response.json(apiSuccess(null, "Offer deleted"));

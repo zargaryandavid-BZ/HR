@@ -79,10 +79,10 @@ export function buildBrandedEmailHtml({
                   ${normalizedBodyHtml}
                 </div>
                 ${noteBlock}
-                <table role="presentation" cellspacing="0" cellpadding="0" style="margin:32px auto 0;">
+                <table role="presentation" cellspacing="0" cellpadding="0" style="margin:20px 0 0;">
                   <tr>
-                    <td align="center" style="border-radius:8px;background:#2563eb;">
-                      <a href="${safeCtaUrl}" style="display:inline-block;padding:14px 28px;font-size:16px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">
+                    <td style="border-radius:8px;background:#2563eb;display:inline-block;">
+                      <a href="${safeCtaUrl}" style="display:inline-block;padding:12px 24px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;white-space:nowrap;">
                         ${safeCtaLabel}
                       </a>
                     </td>
