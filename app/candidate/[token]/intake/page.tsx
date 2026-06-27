@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { US_STATES } from "@/lib/constants/us-states";
-import { candidateIntakeSchema, T_SHIRT_SIZES, type CandidateIntakeInput } from "@/lib/candidate/intake-validation";
+import { candidateIntakeBaseSchema, T_SHIRT_SIZES, type CandidateIntakeInput } from "@/lib/candidate/intake-validation";
 import { normalizePhoneOnBlur, sanitizePhoneInput } from "@/lib/schedule";
 
 type OfferSummary = {
@@ -41,7 +41,7 @@ type OfferSummary = {
   status: string;
 };
 
-const intakeFormSchema = candidateIntakeSchema.omit({
+const intakeFormSchema = candidateIntakeBaseSchema.omit({
   idFileUrl: true,
   idFileName: true,
 });
@@ -131,6 +131,8 @@ export default function CandidateIntakePage({
       }
       setSubmitted(true);
       toast.success("Form submitted successfully!");
+    } catch {
+      toast.error("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -276,7 +278,7 @@ export default function CandidateIntakePage({
                 <Label>T-Shirt Size</Label>
                 <Select
                   value={watch("tShirtSize") ?? ""}
-                  onValueChange={(v) => setValue("tShirtSize", v, { shouldDirty: true, shouldValidate: true })}
+                  onValueChange={(v) => setValue("tShirtSize", v as "" | (typeof T_SHIRT_SIZES)[number], { shouldDirty: true, shouldValidate: true })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select size…" />

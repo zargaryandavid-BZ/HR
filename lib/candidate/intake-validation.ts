@@ -20,9 +20,8 @@ const optionalZipSchema = z
 
 const optionalUrlSchema = z.union([z.literal(""), z.string().trim().url("Invalid file URL")]).optional();
 
-/** Shared candidate intake schema for client + API */
-export const candidateIntakeSchema = z
-  .object({
+/** Base ZodObject — exported so callers can use .omit()/.pick() before superRefine wraps it */
+export const candidateIntakeBaseSchema = z.object({
     phone: z
       .string()
       .trim()
@@ -49,8 +48,10 @@ export const candidateIntakeSchema = z
     allergies: z.string().trim().max(500, "Allergies must be 500 characters or fewer").optional(),
     idFileUrl: optionalUrlSchema,
     idFileName: optionalTrimmedString,
-  })
-  .superRefine((data, ctx) => {
+  });
+
+/** Shared candidate intake schema for client + API (includes cross-field validation) */
+export const candidateIntakeSchema = candidateIntakeBaseSchema.superRefine((data, ctx) => {
     if (data.birthdate) {
       let birthdate: Date;
       try {

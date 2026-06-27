@@ -130,7 +130,7 @@ export default function CandidateOfferPage({
   const canRespond = ["SENT", "VIEWED"].includes(offer.status);
 
   return (
-    <div className="min-h-dvh px-4 py-8">
+    <div className="min-h-dvh px-4 py-8 flex flex-col items-center">
       <div className="max-w-xl w-full space-y-6">
         {/* Header */}
         <div className="text-center space-y-1">
