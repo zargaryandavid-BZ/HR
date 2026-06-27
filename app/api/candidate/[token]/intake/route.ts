@@ -55,6 +55,7 @@ export async function POST(
           emergencyContactConsent: data.emergencyContactConsent,
           tShirtSize: data.tShirtSize,
           allergies: data.allergies,
+          idDocType: data.idDocType,
           idFileUrl: data.idFileUrl,
           idFileName: data.idFileName,
         },

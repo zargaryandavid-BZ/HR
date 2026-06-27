@@ -31,7 +31,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { US_STATES } from "@/lib/constants/us-states";
-import { candidateIntakeBaseSchema, T_SHIRT_SIZES, type CandidateIntakeInput } from "@/lib/candidate/intake-validation";
+import {
+  candidateIntakeBaseSchema,
+  ID_DOCUMENT_TYPES,
+  T_SHIRT_SIZES,
+  type CandidateIntakeInput,
+} from "@/lib/candidate/intake-validation";
 import { normalizePhoneOnBlur, sanitizePhoneInput } from "@/lib/schedule";
 
 type OfferSummary = {
@@ -49,6 +54,14 @@ const intakeFormSchema = candidateIntakeBaseSchema.omit({
 });
 
 type FormValues = Omit<CandidateIntakeInput, "idFileUrl" | "idFileName">;
+
+const ID_DOCUMENT_TYPE_LABELS: Record<(typeof ID_DOCUMENT_TYPES)[number], string> = {
+  SSN: "SSN",
+  PASSPORT: "Passport",
+  WORK_PERMIT: "Work Permit",
+  DRIVERS_LICENSE: "Driver's License",
+  GOVERNMENT_ID: "Government ID",
+};
 
 function sanitizeZipInput(value: string): string {
   return value.replace(/\D/g, "").slice(0, 5);
@@ -474,6 +487,32 @@ export default function CandidateIntakePage({
                 Upload a copy of your government-issued ID, passport, or business card.
                 Accepted formats: PDF, JPG, PNG (max 10 MB).
               </p>
+              <div className="space-y-1">
+                <Label>Document Type</Label>
+                <Select
+                  value={watch("idDocType") ?? ""}
+                  onValueChange={(value) =>
+                    setValue("idDocType", value as FormValues["idDocType"], {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select document type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ID_DOCUMENT_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {ID_DOCUMENT_TYPE_LABELS[type]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.idDocType && (
+                  <p className="text-xs text-destructive">{errors.idDocType.message}</p>
+                )}
+              </div>
 
               {idFile ? (
                 <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">

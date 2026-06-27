@@ -930,6 +930,7 @@ model CandidateIntakeResponse {
   emergencyContactConsent  Boolean   @default(false)
   tShirtSize               String?
   allergies                String?
+  idDocType                IdDocType?
   idFileUrl                String?
   idFileName               String?
   submittedAt              DateTime  @default(now())

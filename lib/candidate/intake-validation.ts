@@ -5,6 +5,13 @@ import { US_STATES } from "@/lib/constants/us-states";
 import { PHONE_REGEX, normalizePhoneOnBlur } from "@/lib/schedule";
 
 export const T_SHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"] as const;
+export const ID_DOCUMENT_TYPES = [
+  "SSN",
+  "PASSPORT",
+  "WORK_PERMIT",
+  "DRIVERS_LICENSE",
+  "GOVERNMENT_ID",
+] as const;
 const US_STATE_CODES = US_STATES.map((state) => state.code) as [string, ...string[]];
 
 const optionalTrimmedString = z.string().trim().optional();
@@ -46,6 +53,7 @@ export const candidateIntakeBaseSchema = z.object({
     }),
     tShirtSize: z.union([z.literal(""), z.enum(T_SHIRT_SIZES)]).optional(),
     allergies: z.string().trim().max(500, "Allergies must be 500 characters or fewer").optional(),
+    idDocType: z.union([z.literal(""), z.enum(ID_DOCUMENT_TYPES)]).optional(),
     idFileUrl: optionalUrlSchema,
     idFileName: optionalTrimmedString,
   });
@@ -87,6 +95,22 @@ export const candidateIntakeSchema = candidateIntakeBaseSchema.superRefine((data
       });
     }
 
+    if ((data.idFileUrl || data.idFileName) && !data.idDocType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Select a document type for the uploaded file",
+        path: ["idDocType"],
+      });
+    }
+
+    if (data.idDocType && !data.idFileUrl) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Upload a file for the selected document type",
+        path: ["idFileName"],
+      });
+    }
+
     if (
       data.phone &&
       data.emergencyContactPhone &&
@@ -118,6 +142,7 @@ type CandidateIntakeNormalized = {
   emergencyContactConsent: true;
   tShirtSize: (typeof T_SHIRT_SIZES)[number] | null;
   allergies: string | null;
+  idDocType: (typeof ID_DOCUMENT_TYPES)[number] | null;
   idFileUrl: string | null;
   idFileName: string | null;
 };
@@ -156,6 +181,8 @@ export function normalizeCandidateIntake(values: CandidateIntakeValues): Candida
     emergencyContactConsent: true,
     tShirtSize: (normalizeOptionalValue(values.tShirtSize) as (typeof T_SHIRT_SIZES)[number] | null) ?? null,
     allergies: normalizeOptionalValue(values.allergies),
+    idDocType:
+      (normalizeOptionalValue(values.idDocType) as (typeof ID_DOCUMENT_TYPES)[number] | null) ?? null,
     idFileUrl: normalizeOptionalValue(values.idFileUrl),
     idFileName: normalizeOptionalValue(values.idFileName),
   };

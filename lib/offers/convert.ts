@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { createEmployee } from "@/lib/employees";
 import type { EmployeeFormValues } from "@/lib/validations";
+import type { IdDocType } from "@prisma/client";
 
 export type ConvertOfferInput = {
   offerId: string;
@@ -59,6 +60,18 @@ export async function convertOfferToEmployee(input: ConvertOfferInput) {
   };
 
   const employee = await createEmployee(employeeInput, input.assignedByUserId);
+
+  if (intake?.idFileUrl && intake.idFileName) {
+    await prisma.employeeIdentityDocument.create({
+      data: {
+        employeeId: employee.id,
+        docType: (intake.idDocType as IdDocType | null) ?? "GOVERNMENT_ID",
+        fileUrl: intake.idFileUrl,
+        fileName: intake.idFileName,
+        createdBy: input.assignedByUserId,
+      },
+    });
+  }
 
   await prisma.jobOffer.update({
     where: { id: offer.id },
