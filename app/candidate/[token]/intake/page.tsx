@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { toast } from "sonner";
 import {
   CheckCircle,
@@ -31,7 +30,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
+import { US_STATES } from "@/lib/constants/us-states";
+import { candidateIntakeSchema, T_SHIRT_SIZES, type CandidateIntakeInput } from "@/lib/candidate/intake-validation";
+import { normalizePhoneOnBlur, sanitizePhoneInput } from "@/lib/schedule";
 
 type OfferSummary = {
   candidateFirst: string;
@@ -40,26 +41,16 @@ type OfferSummary = {
   status: string;
 };
 
-const T_SHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL", "XXXL"] as const;
-
-const intakeSchema = z.object({
-  phone: z.string().min(1, "Phone number required"),
-  personalEmail: z.string().email("Valid email required").or(z.literal("")).optional(),
-  birthdate: z.string().optional(),
-  addressStreet: z.string().optional(),
-  addressCity: z.string().optional(),
-  addressState: z.string().optional(),
-  addressZip: z.string().optional(),
-  addressCountry: z.string().optional(),
-  emergencyContactName: z.string().min(1, "Emergency contact name required"),
-  emergencyContactPhone: z.string().min(1, "Emergency contact phone required"),
-  emergencyContactRelation: z.string().min(1, "Relationship required"),
-  emergencyContactConsent: z.boolean(),
-  tShirtSize: z.string().optional(),
-  allergies: z.string().optional(),
+const intakeFormSchema = candidateIntakeSchema.omit({
+  idFileUrl: true,
+  idFileName: true,
 });
 
-type FormValues = z.infer<typeof intakeSchema>;
+type FormValues = Omit<CandidateIntakeInput, "idFileUrl" | "idFileName">;
+
+function sanitizeZipInput(value: string): string {
+  return value.replace(/\D/g, "").slice(0, 5);
+}
 
 export default function CandidateIntakePage({
   params,
@@ -92,8 +83,8 @@ export default function CandidateIntakePage({
     setValue,
     formState: { errors },
   } = useForm<FormValues>({
-    resolver: zodResolver(intakeSchema),
-    defaultValues: { emergencyContactConsent: false },
+    resolver: zodResolver(intakeFormSchema),
+    defaultValues: { emergencyContactConsent: false, addressCountry: "US" },
   });
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -147,7 +138,7 @@ export default function CandidateIntakePage({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -155,7 +146,7 @@ export default function CandidateIntakePage({
 
   if (error || !offer) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-dvh flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
           <CardContent className="py-12">
             <XCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
@@ -169,7 +160,7 @@ export default function CandidateIntakePage({
 
   if (offer.status === "INTAKE_COMPLETE" || offer.status === "CONVERTED") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-dvh flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
           <CardContent className="py-12">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
@@ -188,7 +179,7 @@ export default function CandidateIntakePage({
 
   if (offer.status !== "APPROVED") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-dvh flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
           <CardContent className="py-12">
             <AlertCircle className="h-12 w-12 text-amber-400 mx-auto mb-4" />
@@ -207,7 +198,7 @@ export default function CandidateIntakePage({
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-dvh flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center shadow-md">
           <CardContent className="py-12">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
@@ -225,7 +216,7 @@ export default function CandidateIntakePage({
   }
 
   return (
-    <div className="min-h-screen py-10 px-4">
+    <div className="min-h-dvh px-4 py-10">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center space-y-1">
@@ -251,7 +242,23 @@ export default function CandidateIntakePage({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>Phone Number <span className="text-destructive">*</span></Label>
-                  <Input {...register("phone")} placeholder="+1 555 000 0000" />
+                  <Input
+                    value={watch("phone") ?? ""}
+                    inputMode="tel"
+                    placeholder="+1 555 000 0000"
+                    onChange={(e) =>
+                      setValue("phone", sanitizePhoneInput(e.target.value), {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                    onBlur={(e) =>
+                      setValue("phone", normalizePhoneOnBlur(e.target.value), {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                  />
                   {errors.phone && <p className="text-xs text-destructive">{errors.phone.message}</p>}
                 </div>
                 <div className="space-y-1">
@@ -263,12 +270,13 @@ export default function CandidateIntakePage({
               <div className="space-y-1">
                 <Label>Date of Birth</Label>
                 <Input {...register("birthdate")} type="date" />
+                {errors.birthdate && <p className="text-xs text-destructive">{errors.birthdate.message}</p>}
               </div>
               <div className="space-y-1">
                 <Label>T-Shirt Size</Label>
                 <Select
                   value={watch("tShirtSize") ?? ""}
-                  onValueChange={(v) => setValue("tShirtSize", v)}
+                  onValueChange={(v) => setValue("tShirtSize", v, { shouldDirty: true, shouldValidate: true })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select size…" />
@@ -279,6 +287,7 @@ export default function CandidateIntakePage({
                     ))}
                   </SelectContent>
                 </Select>
+                {errors.tShirtSize && <p className="text-xs text-destructive">{errors.tShirtSize.message}</p>}
               </div>
               <div className="space-y-1">
                 <Label>Allergies / Dietary Restrictions</Label>
@@ -311,17 +320,57 @@ export default function CandidateIntakePage({
                 </div>
                 <div className="space-y-1">
                   <Label>State</Label>
-                  <Input {...register("addressState")} placeholder="CA" />
+                  <Select
+                    value={watch("addressState") ?? ""}
+                    onValueChange={(value) =>
+                      setValue("addressState", value, { shouldDirty: true, shouldValidate: true })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select state" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {US_STATES.map((state) => (
+                        <SelectItem key={state.code} value={state.code}>
+                          {state.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors.addressState && (
+                    <p className="text-xs text-destructive">{errors.addressState.message}</p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label>ZIP Code</Label>
-                  <Input {...register("addressZip")} placeholder="90001" />
+                  <Input
+                    value={watch("addressZip") ?? ""}
+                    inputMode="numeric"
+                    maxLength={5}
+                    placeholder="90001"
+                    onChange={(e) =>
+                      setValue("addressZip", sanitizeZipInput(e.target.value), {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                  />
+                  {errors.addressZip && <p className="text-xs text-destructive">{errors.addressZip.message}</p>}
                 </div>
                 <div className="space-y-1">
                   <Label>Country</Label>
-                  <Input {...register("addressCountry")} placeholder="USA" />
+                  <Input
+                    {...register("addressCountry")}
+                    placeholder="US"
+                    onBlur={(e) => {
+                      setValue("addressCountry", e.target.value.trim().toUpperCase(), {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      });
+                    }}
+                  />
                 </div>
               </div>
             </CardContent>
@@ -354,7 +403,23 @@ export default function CandidateIntakePage({
               </div>
               <div className="space-y-1">
                 <Label>Phone Number <span className="text-destructive">*</span></Label>
-                <Input {...register("emergencyContactPhone")} placeholder="+1 555 000 0000" />
+                <Input
+                  value={watch("emergencyContactPhone") ?? ""}
+                  inputMode="tel"
+                  placeholder="+1 555 000 0000"
+                  onChange={(e) =>
+                    setValue("emergencyContactPhone", sanitizePhoneInput(e.target.value), {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
+                  onBlur={(e) =>
+                    setValue("emergencyContactPhone", normalizePhoneOnBlur(e.target.value), {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
+                />
                 {errors.emergencyContactPhone && (
                   <p className="text-xs text-destructive">{errors.emergencyContactPhone.message}</p>
                 )}
@@ -375,6 +440,9 @@ export default function CandidateIntakePage({
                   emergency involving me.
                 </Label>
               </div>
+              {errors.emergencyContactConsent && (
+                <p className="text-xs text-destructive">{errors.emergencyContactConsent.message}</p>
+              )}
             </CardContent>
           </Card>
 

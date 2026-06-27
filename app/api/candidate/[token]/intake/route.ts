@@ -1,26 +1,7 @@
 import { NextRequest } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { apiSuccess, apiError } from "@/lib/api-response";
-
-const intakeSchema = z.object({
-  phone: z.string().optional(),
-  personalEmail: z.string().email().optional().or(z.literal("")),
-  birthdate: z.string().optional(),
-  addressStreet: z.string().optional(),
-  addressCity: z.string().optional(),
-  addressState: z.string().optional(),
-  addressZip: z.string().optional(),
-  addressCountry: z.string().optional(),
-  emergencyContactName: z.string().min(1, "Emergency contact name is required"),
-  emergencyContactPhone: z.string().min(1, "Emergency contact phone is required"),
-  emergencyContactRelation: z.string().min(1, "Relationship is required"),
-  emergencyContactConsent: z.boolean(),
-  tShirtSize: z.string().optional(),
-  allergies: z.string().optional(),
-  idFileUrl: z.string().optional(),
-  idFileName: z.string().optional(),
-});
+import { candidateIntakeSchema, normalizeCandidateIntake } from "@/lib/candidate/intake-validation";
 
 export async function POST(
   request: NextRequest,
@@ -45,33 +26,37 @@ export async function POST(
     }
 
     const body = await request.json();
-    const parsed = intakeSchema.safeParse(body);
+    const parsed = candidateIntakeSchema.safeParse(body);
     if (!parsed.success) {
       return apiError("Validation failed", parsed.error.errors[0]?.message ?? "Invalid data");
     }
 
-    const data = parsed.data;
+    const data = normalizeCandidateIntake(parsed.data);
+
+    if (data.idFileUrl && !data.idFileUrl.includes(`/candidate-intake/${offer.id}/`)) {
+      return apiError("Validation failed", "Uploaded file does not belong to this offer");
+    }
 
     await prisma.$transaction([
       prisma.candidateIntakeResponse.create({
         data: {
           jobOfferId: offer.id,
-          phone: data.phone || null,
-          personalEmail: data.personalEmail || null,
-          birthdate: data.birthdate ? new Date(data.birthdate) : null,
-          addressStreet: data.addressStreet || null,
-          addressCity: data.addressCity || null,
-          addressState: data.addressState || null,
-          addressZip: data.addressZip || null,
-          addressCountry: data.addressCountry || null,
+          phone: data.phone,
+          personalEmail: data.personalEmail,
+          birthdate: data.birthdate,
+          addressStreet: data.addressStreet,
+          addressCity: data.addressCity,
+          addressState: data.addressState,
+          addressZip: data.addressZip,
+          addressCountry: data.addressCountry,
           emergencyContactName: data.emergencyContactName,
           emergencyContactPhone: data.emergencyContactPhone,
           emergencyContactRelation: data.emergencyContactRelation,
           emergencyContactConsent: data.emergencyContactConsent,
-          tShirtSize: data.tShirtSize || null,
-          allergies: data.allergies || null,
-          idFileUrl: data.idFileUrl || null,
-          idFileName: data.idFileName || null,
+          tShirtSize: data.tShirtSize,
+          allergies: data.allergies,
+          idFileUrl: data.idFileUrl,
+          idFileName: data.idFileName,
         },
       }),
       prisma.jobOffer.update({

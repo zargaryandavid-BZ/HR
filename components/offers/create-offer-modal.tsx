@@ -29,6 +29,7 @@ const schema = z.object({
   candidateFirst: z.string().min(1, "Required"),
   candidateLast: z.string().min(1, "Required"),
   candidateEmail: z.string().email("Valid email required"),
+  candidatePhone: z.string().optional(),
   jobTitle: z.string().min(1, "Required"),
   payType: z.enum(["HOURLY", "SALARY"]),
   payRate: z.string().optional(),
@@ -133,6 +134,13 @@ export function CreateOfferModal({ open, onClose }: Props) {
               {errors.candidateEmail && (
                 <p className="text-xs text-destructive">{errors.candidateEmail.message}</p>
               )}
+            </div>
+            <div className="space-y-1 mt-3">
+              <Label>
+                Phone Number{" "}
+                <span className="text-muted-foreground font-normal">(for SMS notification)</span>
+              </Label>
+              <Input {...register("candidatePhone")} type="tel" placeholder="+1 555 000 0000" />
             </div>
           </div>
 

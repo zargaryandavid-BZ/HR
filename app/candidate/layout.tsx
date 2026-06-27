@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 export default function CandidateLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      <div className="min-h-dvh overflow-y-auto overscroll-y-contain bg-gradient-to-br from-slate-50 to-blue-50">
         {children}
       </div>
       <Toaster position="bottom-right" richColors />

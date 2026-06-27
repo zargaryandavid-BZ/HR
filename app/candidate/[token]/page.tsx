@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { CheckCircle, XCircle, Briefcase, Calendar, MapPin, DollarSign, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -102,7 +101,7 @@ export default function CandidateOfferPage({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -110,7 +109,7 @@ export default function CandidateOfferPage({
 
   if (error || !offer) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-dvh flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center">
           <CardContent className="py-12">
             <XCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
@@ -131,7 +130,7 @@ export default function CandidateOfferPage({
   const canRespond = ["SENT", "VIEWED"].includes(offer.status);
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-dvh px-4 py-8">
       <div className="max-w-xl w-full space-y-6">
         {/* Header */}
         <div className="text-center space-y-1">

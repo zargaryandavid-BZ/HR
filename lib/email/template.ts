@@ -31,6 +31,7 @@ export function buildBrandedEmailHtml({
   const safeCtaUrl = escapeHtml(ctaUrl);
   const safePreheader = preheader ? escapeHtml(preheader) : "";
   const safeFooterNote = footerNote ? escapeHtml(footerNote) : "";
+  const normalizedBodyHtml = bodyHtml.replace(/>\s+</g, "><").trim();
   const noteBlock = note
     ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:24px 0 0;">
          <tr>
@@ -74,8 +75,8 @@ export function buildBrandedEmailHtml({
                 <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#18181b;">
                   Hi ${safeGreeting},
                 </p>
-                <div style="font-size:16px;line-height:1.7;color:#3f3f46;">
-                  ${bodyHtml}
+                <div style="margin:0;padding:0;font-size:16px;line-height:1.6;color:#3f3f46;">
+                  ${normalizedBodyHtml}
                 </div>
                 ${noteBlock}
                 <table role="presentation" cellspacing="0" cellpadding="0" style="margin:32px auto 0;">

@@ -23,6 +23,7 @@ export async function POST(
       candidateFirst: offer.candidateFirst,
       candidateLast: offer.candidateLast,
       candidateEmail: offer.candidateEmail,
+      candidatePhone: offer.candidatePhone,
       jobTitle: offer.jobTitle,
       payType: offer.payType,
       payRate: offer.payRate,
