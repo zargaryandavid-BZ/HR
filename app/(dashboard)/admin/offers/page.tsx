@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Plus, Send, Trash2, UserPlus, ExternalLink, RefreshCw, Pencil } from "lucide-react";
+import { Plus, Send, Trash2, UserPlus, ExternalLink, RefreshCw, Pencil, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CreateOfferModal } from "@/components/offers/create-offer-modal";
 import { ConvertOfferModal } from "@/components/offers/convert-offer-modal";
 import { EditOfferModal } from "@/components/offers/edit-offer-modal";
+import { ViewIntakeModal } from "@/components/offers/view-intake-modal";
 import {
   Dialog,
   DialogContent,
@@ -77,6 +78,7 @@ export default function AdminOffersPage() {
   const [convertOffer, setConvertOffer] = useState<JobOffer | null>(null);
   const [editOffer, setEditOffer] = useState<JobOffer | null>(null);
   const [deleteOffer, setDeleteOffer] = useState<JobOffer | null>(null);
+  const [viewIntakeId, setViewIntakeId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [resending, setResending] = useState<string | null>(null);
 
@@ -203,6 +205,17 @@ export default function AdminOffersPage() {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                      {offer.intake && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-green-300 text-green-700 hover:bg-green-50"
+                          onClick={() => setViewIntakeId(offer.id)}
+                        >
+                          <ClipboardList className="h-3.5 w-3.5 mr-1" />
+                          View Intake
+                        </Button>
+                      )}
                       {canResend && (
                         <Button
                           variant="outline"
@@ -279,6 +292,12 @@ export default function AdminOffersPage() {
       )}
 
       <CreateOfferModal open={createOpen} onClose={() => setCreateOpen(false)} />
+
+      <ViewIntakeModal
+        offerId={viewIntakeId}
+        open={!!viewIntakeId}
+        onClose={() => setViewIntakeId(null)}
+      />
 
       <EditOfferModal
         offer={editOffer}
