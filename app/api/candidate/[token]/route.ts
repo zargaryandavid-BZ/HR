@@ -15,6 +15,8 @@ export async function GET(
         id: true,
         candidateFirst: true,
         candidateLast: true,
+        candidateEmail: true,
+        candidatePhone: true,
         jobTitle: true,
         payType: true,
         payRate: true,

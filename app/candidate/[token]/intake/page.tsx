@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, use, useRef } from "react";
+import { useState, use, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -37,6 +37,8 @@ import { normalizePhoneOnBlur, sanitizePhoneInput } from "@/lib/schedule";
 type OfferSummary = {
   candidateFirst: string;
   candidateLast: string;
+  candidateEmail: string;
+  candidatePhone: string | null;
   jobTitle: string;
   status: string;
 };
@@ -81,11 +83,22 @@ export default function CandidateIntakePage({
     handleSubmit,
     watch,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(intakeFormSchema),
     defaultValues: { emergencyContactConsent: false, addressCountry: "US" },
   });
+
+  useEffect(() => {
+    if (!offer) return;
+    reset({
+      emergencyContactConsent: false,
+      addressCountry: "US",
+      phone: offer.candidatePhone ? sanitizePhoneInput(offer.candidatePhone) : undefined,
+      personalEmail: offer.candidateEmail ?? undefined,
+    });
+  }, [offer, reset]);
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
