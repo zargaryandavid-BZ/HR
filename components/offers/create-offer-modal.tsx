@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -49,7 +49,7 @@ type Props = {
 export function CreateOfferModal({ open, onClose }: Props) {
   const qc = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
-  const [sendNow, setSendNow] = useState(true);
+  const sendNowRef = useRef(true);
 
   const {
     register,
@@ -77,7 +77,7 @@ export function CreateOfferModal({ open, onClose }: Props) {
         body: JSON.stringify({
           ...values,
           payRate: values.payRate ? parseFloat(values.payRate) : undefined,
-          sendNow,
+          sendNow: sendNowRef.current,
         }),
       });
       const json = await res.json();
@@ -85,7 +85,7 @@ export function CreateOfferModal({ open, onClose }: Props) {
         toast.error(json.message ?? "Failed to create offer");
         return;
       }
-      toast.success(sendNow ? "Offer sent to candidate" : "Offer saved as draft");
+      toast.success(sendNowRef.current ? "Offer sent to candidate" : "Offer saved as draft");
       qc.invalidateQueries({ queryKey: ["job-offers"] });
       reset();
       onClose();
@@ -241,31 +241,19 @@ export function CreateOfferModal({ open, onClose }: Props) {
           </div>
 
           <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
-            <div className="flex items-center gap-2 mr-auto">
-              <Button
-                type="button"
-                variant={sendNow ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSendNow(true)}
-                className="text-xs"
-              >
-                Send Now
-              </Button>
-              <Button
-                type="button"
-                variant={!sendNow ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSendNow(false)}
-                className="text-xs"
-              >
-                Save as Draft
-              </Button>
-            </div>
-            <Button type="button" variant="ghost" onClick={handleClose} disabled={submitting}>
+            <Button type="button" variant="ghost" onClick={handleClose} disabled={submitting} className="sm:mr-auto">
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Saving…" : sendNow ? "Send Offer" : "Save Draft"}
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={submitting}
+              onClick={() => { sendNowRef.current = false; }}
+            >
+              Save as Draft
+            </Button>
+            <Button type="submit" disabled={submitting} onClick={() => { sendNowRef.current = true; }}>
+              {submitting ? "Saving…" : "Send Offer"}
             </Button>
           </DialogFooter>
         </form>
