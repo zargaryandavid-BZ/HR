@@ -1,16 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { Eye, Pencil, Plus, Users } from "lucide-react";
 import type { DocumentListItem } from "@/lib/documents/constants";
 import { DOCUMENT_TYPES } from "@/lib/documents/constants";
-import { PageHeader, EmptyState } from "@/components/shared/page-header";
+import { DocumentTypeBadge } from "@/components/documents/document-type-badge";
+import { PageHeader, DataTable } from "@/components/shared/page-header";
 import { ToastBanner } from "@/components/shared/toast-banner";
-import { DocumentCard } from "@/components/documents/document-card";
 import { DocumentFormModal } from "@/components/documents/document-form-modal";
 import { DocumentAssignPanel } from "@/components/documents/document-assign-panel";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -19,8 +20,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { TableRowSkeleton } from "@/components/ui/skeleton";
+import { formatDisplayDate } from "@/lib/dates";
+
+type DepartmentOption = { id: string; name: string };
+type PositionOption = { id: string; name: string; department: { id: string; name: string } };
+
+const SCOPE_OPTIONS = {
+  ALL: "All Scopes",
+  COMPANY_WIDE: "Company-wide",
+  POSITION_SPECIFIC: "Position-specific",
+} as const;
+
+function statusBadgeClass(status: string, isActive: boolean): string {
+  if (status === "ARCHIVED") return "bg-slate-100 text-slate-700 border-slate-300";
+  if (!isActive) return "bg-amber-100 text-amber-800 border-amber-200";
+  return "bg-green-100 text-green-800 border-green-200";
+}
 
 /** HR Admin document repository page */
 export default function DocumentsPage() {
@@ -28,7 +44,9 @@ export default function DocumentsPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [scopeFilter, setScopeFilter] = useState<string>("ALL");
   const [departmentFilter, setDepartmentFilter] = useState<string>("ALL");
+  const [positionFilter, setPositionFilter] = useState<string>("ALL");
   const [formOpen, setFormOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<DocumentListItem | null>(null);
   const [assignDoc, setAssignDoc] = useState<DocumentListItem | null>(null);
@@ -58,7 +76,7 @@ export default function DocumentsPage() {
     queryFn: async () => {
       const res = await fetch("/api/departments");
       const json = await res.json();
-      return json.data as { id: string; name: string }[];
+      return json.data as DepartmentOption[];
     },
   });
 
@@ -67,40 +85,71 @@ export default function DocumentsPage() {
     queryFn: async () => {
       const res = await fetch("/api/settings/positions");
       const json = await res.json();
-      return json.data as Array<{ id: string; department: { id: string } }>;
+      return json.data as PositionOption[];
     },
   });
 
-  const companyWideDocs = useMemo(
-    () =>
-      (documents ?? [])
-        .filter((d) => d.scope === "COMPANY_WIDE")
-        .sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        ),
-    [documents]
-  );
+  const positionOptions = useMemo(() => {
+    const list = positions ?? [];
+    if (departmentFilter === "ALL") return list;
+    return list.filter((position) => position.department?.id === departmentFilter);
+  }, [positions, departmentFilter]);
 
-  const positionSpecificDocs = useMemo(() => {
-    const docs = (documents ?? []).filter((d) => d.scope === "POSITION_SPECIFIC");
-    if (departmentFilter === "ALL") return docs;
+  useEffect(() => {
+    if (positionFilter === "ALL") return;
+    if (!positionOptions.some((position) => position.id === positionFilter)) {
+      setPositionFilter("ALL");
+    }
+  }, [positionFilter, positionOptions]);
 
-    const positionIdsInDept = new Set(
+  const filteredDocuments = useMemo(() => {
+    let docs = [...(documents ?? [])];
+
+    if (scopeFilter !== "ALL") {
+      docs = docs.filter((doc) => doc.scope === scopeFilter);
+    }
+
+    const positionIdsInSelectedDepartment = new Set(
       (positions ?? [])
-        .filter((p) => p.department.id === departmentFilter)
-        .map((p) => p.id)
+        .filter((position) => position.department?.id === departmentFilter)
+        .map((position) => position.id)
     );
 
-    return docs.filter(
-      (doc) =>
-        doc.departmentIds.includes(departmentFilter) ||
-        doc.positionIds.some((id) => positionIdsInDept.has(id)) ||
-        doc.assignmentTags.some(
-          (tag) => tag.kind === "department" && tag.id === departmentFilter
-        )
-    );
-  }, [documents, departmentFilter, positions]);
+    if (departmentFilter !== "ALL") {
+      docs = docs.filter((doc) => {
+        if (doc.scope === "COMPANY_WIDE") return true;
+        return (
+          doc.departmentIds.includes(departmentFilter) ||
+          doc.positionIds.some((id) => positionIdsInSelectedDepartment.has(id)) ||
+          doc.assignmentTags.some(
+            (tag) => tag.kind === "department" && tag.id === departmentFilter
+          )
+        );
+      });
+    }
+
+    if (positionFilter !== "ALL") {
+      docs = docs.filter((doc) => {
+        if (doc.scope === "COMPANY_WIDE") return true;
+        return (
+          doc.positionIds.includes(positionFilter) ||
+          doc.assignmentTags.some(
+            (tag) => tag.kind === "position" && tag.id === positionFilter
+          )
+        );
+      });
+    }
+
+    return docs;
+  }, [documents, scopeFilter, departmentFilter, positionFilter, positions]);
+
+  const hasFilters =
+    search.trim().length > 0 ||
+    typeFilter !== "ALL" ||
+    statusFilter !== "all" ||
+    scopeFilter !== "ALL" ||
+    departmentFilter !== "ALL" ||
+    positionFilter !== "ALL";
 
   function openCreate() {
     setEditingDoc(null);
@@ -126,104 +175,186 @@ export default function DocumentsPage() {
         }
       />
 
-      <div className="flex flex-col lg:flex-row gap-3 mb-8">
-        <Input
-          placeholder="Search by title"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="lg:max-w-xs"
-        />
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="lg:w-48">
-            <SelectValue placeholder="All Types" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">All Types</SelectItem>
-            {DOCUMENT_TYPES.map((type) => (
-              <SelectItem key={type} value={type}>
-                {type.replace(/_/g, " ")}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="lg:w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-            <SelectItem value="archived">Archived</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="sticky top-0 z-10 mb-6 rounded-lg border bg-background/95 p-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+          <Input
+            placeholder="Search by title"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="xl:col-span-2"
+          />
+          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Departments" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Departments</SelectItem>
+              {(departments ?? []).map((department) => (
+                <SelectItem key={department.id} value={department.id}>
+                  {department.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={positionFilter} onValueChange={setPositionFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Positions" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Positions</SelectItem>
+              {positionOptions.map((position) => (
+                <SelectItem key={position.id} value={position.id}>
+                  {position.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All Types</SelectItem>
+              {DOCUMENT_TYPES.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {type.replace(/_/g, " ")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="grid grid-cols-2 gap-3 xl:col-span-1">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={scopeFilter} onValueChange={setScopeFilter}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(SCOPE_OPTIONS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
 
-      {isLoading ? (
-        <Skeleton className="h-64 w-full" />
-      ) : (
-        <div className="space-y-10">
-          <DocumentSection
-            accentClass="border-l-blue-600"
-            title="Company-wide documents"
-            subtitle="Automatically included in every onboarding flow — required for all employees"
-            docs={companyWideDocs}
-            emptyTitle="No company-wide documents yet"
-            emptyDescription="Add documents that every employee must receive, such as tax forms and the employee handbook."
-            onEdit={openEdit}
-            onCreate={openCreate}
-          />
+      <DataTable>
+        <thead className="bg-muted/50">
+          <tr className="text-left">
+            <th className="px-4 py-3 font-medium">Title</th>
+            <th className="px-4 py-3 font-medium">Type</th>
+            <th className="px-4 py-3 font-medium">Scope</th>
+            <th className="px-4 py-3 font-medium">Department / Position</th>
+            <th className="px-4 py-3 font-medium">Status</th>
+            <th className="px-4 py-3 font-medium">Updated</th>
+            <th className="px-4 py-3 font-medium text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {isLoading ? (
+            Array.from({ length: 6 }).map((_, index) => (
+              <TableRowSkeleton key={index} columns={7} />
+            ))
+          ) : filteredDocuments.length === 0 ? (
+            <tr>
+              <td colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                {hasFilters
+                  ? "No documents match the selected filters."
+                  : "No documents found. Add your first document to get started."}
+              </td>
+            </tr>
+          ) : (
+            filteredDocuments.map((doc) => {
+              const visibleTags = doc.assignmentTags.slice(0, 2);
+              const extraTagCount = Math.max(0, doc.assignmentTags.length - 2);
 
-          <div className="border-t" />
-
-          <section className="space-y-4">
-            <div className={cn("border-l-[3px] pl-4", "border-l-teal-600")}>
-              <h2 className="text-xl font-semibold">Position-specific documents</h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                Assigned to specific positions, departments, or individual employees
-              </p>
-            </div>
-
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              <FilterPill
-                active={departmentFilter === "ALL"}
-                onClick={() => setDepartmentFilter("ALL")}
-              >
-                All
-              </FilterPill>
-              {(departments ?? []).map((dept) => (
-                <FilterPill
-                  key={dept.id}
-                  active={departmentFilter === dept.id}
-                  onClick={() => setDepartmentFilter(dept.id)}
-                >
-                  {dept.name}
-                </FilterPill>
-              ))}
-            </div>
-
-            {positionSpecificDocs.length === 0 ? (
-              <EmptyState
-                title="No position-specific documents"
-                description="Add documents assigned to specific positions, departments, or individuals."
-                action={<Button onClick={openCreate}>Add Document</Button>}
-              />
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {positionSpecificDocs.map((doc) => (
-                  <DocumentCard
-                    key={doc.id}
-                    doc={doc}
-                    showAssign
-                    onEdit={() => openEdit(doc)}
-                    onAssign={() => setAssignDoc(doc)}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
-      )}
+              return (
+                <tr key={doc.id} className="border-t align-top">
+                  <td className="px-4 py-3">
+                    <div className="font-medium">{doc.title}</div>
+                    <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                      {doc.description || "No description"}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <DocumentTypeBadge type={doc.documentType} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant="outline">
+                      {doc.scope === "COMPANY_WIDE" ? "Company-wide" : "Position-specific"}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    {doc.scope === "COMPANY_WIDE" ? (
+                      <span className="text-xs text-muted-foreground">All employees</span>
+                    ) : doc.assignmentTags.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {visibleTags.map((tag) => (
+                          <Badge key={`${tag.kind}-${tag.id}`} variant="secondary" className="text-xs">
+                            {tag.label}
+                          </Badge>
+                        ))}
+                        {extraTagCount > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{extraTagCount} more
+                          </Badge>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Unassigned</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant="outline" className={statusBadgeClass(doc.status, doc.isActive)}>
+                      {doc.status === "ARCHIVED"
+                        ? "Archived"
+                        : doc.isActive
+                          ? "Active"
+                          : "Inactive"}
+                    </Badge>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
+                    {formatDisplayDate(doc.updatedAt)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                          <Eye className="h-4 w-4" />
+                        </a>
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => openEdit(doc)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      {doc.scope === "POSITION_SPECIFIC" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setAssignDoc(doc)}
+                        >
+                          <Users className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </DataTable>
 
       <DocumentFormModal
         open={formOpen}
@@ -256,72 +387,5 @@ export default function DocumentsPage() {
       )}
 
     </div>
-  );
-}
-
-function FilterPill({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "shrink-0 rounded-full px-4 py-1.5 text-sm font-medium border transition-colors",
-        active
-          ? "bg-primary text-primary-foreground border-primary"
-          : "bg-background text-muted-foreground border-border hover:bg-muted"
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function DocumentSection({
-  accentClass,
-  title,
-  subtitle,
-  docs,
-  emptyTitle,
-  emptyDescription,
-  onEdit,
-  onCreate,
-}: {
-  accentClass: string;
-  title: string;
-  subtitle: string;
-  docs: DocumentListItem[];
-  emptyTitle: string;
-  emptyDescription: string;
-  onEdit: (doc: DocumentListItem) => void;
-  onCreate: () => void;
-}) {
-  return (
-    <section className="space-y-4">
-      <div className={cn("border-l-[3px] pl-4", accentClass)}>
-        <h2 className="text-xl font-semibold">{title}</h2>
-        <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
-      </div>
-      {docs.length === 0 ? (
-        <EmptyState
-          title={emptyTitle}
-          description={emptyDescription}
-          action={<Button onClick={onCreate}>Add Document</Button>}
-        />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {docs.map((doc) => (
-            <DocumentCard key={doc.id} doc={doc} onEdit={() => onEdit(doc)} />
-          ))}
-        </div>
-      )}
-    </section>
   );
 }
