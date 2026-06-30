@@ -20,17 +20,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TableRowSkeleton } from "@/components/ui/skeleton";
 import { formatDisplayDate } from "@/lib/dates";
 
 type DepartmentOption = { id: string; name: string };
 type PositionOption = { id: string; name: string; department: { id: string; name: string } };
 
-const SCOPE_OPTIONS = {
-  ALL: "All Scopes",
-  COMPANY_WIDE: "Company-wide",
-  POSITION_SPECIFIC: "Position-specific",
-} as const;
+type DocumentCategoryTab = "COMPANY" | "POSITION_DEPARTMENT" | "PERSON";
 
 function statusBadgeClass(status: string, isActive: boolean): string {
   if (status === "ARCHIVED") return "bg-slate-100 text-slate-700 border-slate-300";
@@ -44,7 +41,7 @@ export default function DocumentsPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [scopeFilter, setScopeFilter] = useState<string>("ALL");
+  const [categoryTab, setCategoryTab] = useState<DocumentCategoryTab>("COMPANY");
   const [departmentFilter, setDepartmentFilter] = useState<string>("ALL");
   const [positionFilter, setPositionFilter] = useState<string>("ALL");
   const [formOpen, setFormOpen] = useState(false);
@@ -105,10 +102,6 @@ export default function DocumentsPage() {
   const filteredDocuments = useMemo(() => {
     let docs = [...(documents ?? [])];
 
-    if (scopeFilter !== "ALL") {
-      docs = docs.filter((doc) => doc.scope === scopeFilter);
-    }
-
     const positionIdsInSelectedDepartment = new Set(
       (positions ?? [])
         .filter((position) => position.department?.id === departmentFilter)
@@ -141,13 +134,51 @@ export default function DocumentsPage() {
     }
 
     return docs;
-  }, [documents, scopeFilter, departmentFilter, positionFilter, positions]);
+  }, [documents, departmentFilter, positionFilter, positions]);
+
+  function hasPositionOrDepartmentAssignment(doc: DocumentListItem): boolean {
+    return (
+      doc.departmentIds.length > 0 ||
+      doc.positionIds.length > 0 ||
+      doc.assignmentTags.some((tag) => tag.kind === "department" || tag.kind === "position")
+    );
+  }
+
+  const tabbedDocuments = useMemo(() => {
+    if (categoryTab === "COMPANY") {
+      return filteredDocuments.filter((doc) => doc.scope === "COMPANY_WIDE");
+    }
+    if (categoryTab === "POSITION_DEPARTMENT") {
+      return filteredDocuments.filter(
+        (doc) =>
+          doc.scope === "POSITION_SPECIFIC" && hasPositionOrDepartmentAssignment(doc)
+      );
+    }
+    return filteredDocuments.filter(
+      (doc) =>
+        doc.scope === "POSITION_SPECIFIC" && !hasPositionOrDepartmentAssignment(doc)
+    );
+  }, [filteredDocuments, categoryTab]);
+
+  const tabCounts = useMemo(
+    () => ({
+      company: filteredDocuments.filter((doc) => doc.scope === "COMPANY_WIDE").length,
+      positionDepartment: filteredDocuments.filter(
+        (doc) =>
+          doc.scope === "POSITION_SPECIFIC" && hasPositionOrDepartmentAssignment(doc)
+      ).length,
+      person: filteredDocuments.filter(
+        (doc) =>
+          doc.scope === "POSITION_SPECIFIC" && !hasPositionOrDepartmentAssignment(doc)
+      ).length,
+    }),
+    [filteredDocuments]
+  );
 
   const hasFilters =
     search.trim().length > 0 ||
     typeFilter !== "ALL" ||
     statusFilter !== "all" ||
-    scopeFilter !== "ALL" ||
     departmentFilter !== "ALL" ||
     positionFilter !== "ALL";
 
@@ -234,21 +265,40 @@ export default function DocumentsPage() {
                 <SelectItem value="archived">Archived</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={scopeFilter} onValueChange={setScopeFilter}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(SCOPE_OPTIONS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setSearch("");
+                setTypeFilter("ALL");
+                setStatusFilter("all");
+                setDepartmentFilter("ALL");
+                setPositionFilter("ALL");
+              }}
+            >
+              Clear Filters
+            </Button>
           </div>
         </div>
       </div>
+
+      <Tabs
+        value={categoryTab}
+        onValueChange={(value) => setCategoryTab(value as DocumentCategoryTab)}
+        className="mb-4"
+      >
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="COMPANY">
+            Company specific ({tabCounts.company})
+          </TabsTrigger>
+          <TabsTrigger value="POSITION_DEPARTMENT">
+            Position/Department specific ({tabCounts.positionDepartment})
+          </TabsTrigger>
+          <TabsTrigger value="PERSON">
+            Person specific ({tabCounts.person})
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       <DataTable>
         <thead className="bg-muted/50">
@@ -267,16 +317,16 @@ export default function DocumentsPage() {
             Array.from({ length: 6 }).map((_, index) => (
               <TableRowSkeleton key={index} columns={7} />
             ))
-          ) : filteredDocuments.length === 0 ? (
+          ) : tabbedDocuments.length === 0 ? (
             <tr>
               <td colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">
                 {hasFilters
                   ? "No documents match the selected filters."
-                  : "No documents found. Add your first document to get started."}
+                  : "No documents in this tab yet."}
               </td>
             </tr>
           ) : (
-            filteredDocuments.map((doc) => {
+            tabbedDocuments.map((doc) => {
               const visibleTags = doc.assignmentTags.slice(0, 2);
               const extraTagCount = Math.max(0, doc.assignmentTags.length - 2);
 

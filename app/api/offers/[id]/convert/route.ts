@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
@@ -40,7 +41,17 @@ export async function POST(
       { status: 201 }
     );
   } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return apiError(
+        "Conversion failed",
+        "Work email is already in use. Please choose a different work email.",
+        409
+      );
+    }
     const msg = error instanceof Error ? error.message : "Conversion failed";
+    if (typeof msg === "string" && msg.toLowerCase().includes("already in use")) {
+      return apiError("Conversion failed", msg, 409);
+    }
     return apiError("Conversion failed", msg, 500);
   }
 }
