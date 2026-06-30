@@ -26,12 +26,26 @@ export async function convertOfferToEmployee(input: ConvertOfferInput) {
   if (offer.employeeId) throw new Error("This offer has already been converted");
 
   const intake = offer.intake;
+  const intakePhone = intake?.phone?.trim() ?? "";
+  let employeePhone = intakePhone;
+
+  if (intakePhone) {
+    const phoneInUse = await prisma.employee.findUnique({
+      where: { phone: intakePhone },
+      select: { id: true },
+    });
+
+    // Keep conversion unblocked when intake phone already belongs to another employee.
+    if (phoneInUse) {
+      employeePhone = "";
+    }
+  }
 
   const employeeInput: EmployeeFormValues = {
     firstName: offer.candidateFirst,
     lastName: offer.candidateLast,
     workEmail: input.workEmail,
-    phone: intake?.phone ?? "",
+    phone: employeePhone,
     jobTitle: offer.jobTitle,
     departmentId: offer.departmentId ?? "",
     positionId: offer.positionId ?? undefined,

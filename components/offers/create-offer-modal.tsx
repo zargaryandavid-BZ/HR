@@ -273,7 +273,7 @@ export function CreateOfferModal({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="w-[min(96vw,980px)] max-w-[980px] max-h-[92vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Create Job Offer</DialogTitle>
         </DialogHeader>
@@ -285,7 +285,7 @@ export function CreateOfferModal({ open, onClose }: Props) {
           </TabsList>
 
           {/* ── Details Tab ── */}
-          <TabsContent value="details" className="flex-1 overflow-y-auto mt-0">
+          <TabsContent value="details" className="flex-1 overflow-y-auto mt-0 px-1 pr-2">
             <form id="offer-form" onSubmit={handleSubmit(onSubmit)} className="space-y-5 py-4">
               {/* Candidate */}
               <div>
