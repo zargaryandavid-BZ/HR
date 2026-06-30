@@ -3,7 +3,17 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Plus, Send, Trash2, UserPlus, ExternalLink, RefreshCw, Pencil, ClipboardList } from "lucide-react";
+import {
+  Plus,
+  Send,
+  Trash2,
+  UserPlus,
+  ExternalLink,
+  RefreshCw,
+  Pencil,
+  ClipboardList,
+  Download,
+} from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
@@ -14,6 +24,7 @@ import { CreateOfferModal } from "@/components/offers/create-offer-modal";
 import { ConvertOfferModal } from "@/components/offers/convert-offer-modal";
 import { EditOfferModal } from "@/components/offers/edit-offer-modal";
 import { ViewIntakeModal } from "@/components/offers/view-intake-modal";
+import { generateOfferLetterPdfFromData } from "@/lib/offers/offer-letter-pdf";
 import {
   Dialog,
   DialogContent,
@@ -81,6 +92,7 @@ export default function AdminOffersPage() {
   const [viewIntakeId, setViewIntakeId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [resending, setResending] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const { data: offers, isLoading } = useQuery<JobOffer[]>({
     queryKey: ["job-offers"],
@@ -122,6 +134,34 @@ export default function AdminOffersPage() {
     } finally {
       setDeletingId(null);
       setDeleteOffer(null);
+    }
+  }
+
+  async function handleDownloadOfferLetter(offer: JobOffer) {
+    setDownloadingId(offer.id);
+    try {
+      const dateOnly = offer.startDate?.split("T")[0] ?? offer.startDate;
+      const bytes = await generateOfferLetterPdfFromData({
+        candidateFirst: offer.candidateFirst,
+        candidateLast: offer.candidateLast,
+        jobTitle: offer.jobTitle,
+        startDate: dateOnly,
+        payType: offer.payType,
+        payRate: offer.payRate ?? undefined,
+        payFrequency: offer.payFrequency ?? undefined,
+      });
+
+      const blob = new Blob([bytes.buffer as ArrayBuffer], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `offer-letter-${offer.candidateLast.toLowerCase() || "candidate"}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Failed to download offer letter");
+    } finally {
+      setDownloadingId(null);
     }
   }
 
@@ -250,6 +290,15 @@ export default function AdminOffersPage() {
                           Edit
                         </Button>
                       )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownloadOfferLetter(offer)}
+                        disabled={downloadingId === offer.id}
+                      >
+                        <Download className="h-3.5 w-3.5 mr-1" />
+                        {downloadingId === offer.id ? "Downloading..." : "Download Letter"}
+                      </Button>
                       {offer.employeeId && (
                         <Button variant="outline" size="sm" asChild>
                           <a href={`/admin/employees/${offer.employeeId}`}>

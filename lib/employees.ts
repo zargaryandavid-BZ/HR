@@ -35,6 +35,21 @@ export async function createEmployee(
   const employeeNumber = await generateEmployeeNumber();
 
   const employee = await prisma.$transaction(async (tx) => {
+    const [existingEmployeeEmail, existingUserEmail] = await Promise.all([
+      tx.employee.findUnique({
+        where: { workEmail: input.workEmail },
+        select: { id: true },
+      }),
+      tx.user.findUnique({
+        where: { email: input.workEmail },
+        select: { id: true },
+      }),
+    ]);
+
+    if (existingEmployeeEmail || existingUserEmail) {
+      throw new Error("Work email is already in use. Please use a different email.");
+    }
+
     const newEmployee = await tx.employee.create({
       data: {
         employeeNumber,
