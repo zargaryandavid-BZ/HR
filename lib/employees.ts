@@ -44,7 +44,7 @@ export async function createEmployee(
         personalEmail: input.personalEmail || null,
         workEmail: input.workEmail,
         phone: input.phone || null,
-        departmentId: input.departmentId,
+        departmentId: input.departmentId?.trim() || null,
         positionId: input.positionId || null,
         jobTitle: input.jobTitle,
         employmentType: input.employmentType,
