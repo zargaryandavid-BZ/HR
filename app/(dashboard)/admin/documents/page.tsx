@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, Pencil, Plus, Users } from "lucide-react";
+import { Briefcase, Building2, Eye, Pencil, Plus, User, Users } from "lucide-react";
 import type { DocumentListItem } from "@/lib/documents/constants";
 import { DOCUMENT_TYPES } from "@/lib/documents/constants";
 import { DocumentTypeBadge } from "@/components/documents/document-type-badge";
@@ -12,6 +12,7 @@ import { DocumentFormModal } from "@/components/documents/document-form-modal";
 import { DocumentAssignPanel } from "@/components/documents/document-assign-panel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -27,13 +28,7 @@ import { formatDisplayDate } from "@/lib/dates";
 type DepartmentOption = { id: string; name: string };
 type PositionOption = { id: string; name: string; department: { id: string; name: string } };
 
-type DocumentCategoryTab = "COMPANY" | "POSITION_DEPARTMENT" | "PERSON";
-
-function statusBadgeClass(status: string, isActive: boolean): string {
-  if (status === "ARCHIVED") return "bg-slate-100 text-slate-700 border-slate-300";
-  if (!isActive) return "bg-amber-100 text-amber-800 border-amber-200";
-  return "bg-green-100 text-green-800 border-green-200";
-}
+type DocumentCategoryTab = "ALL" | "COMPANY" | "DEPARTMENT" | "POSITION" | "EMPLOYEE";
 
 /** HR Admin document repository page */
 export default function DocumentsPage() {
@@ -41,7 +36,7 @@ export default function DocumentsPage() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [categoryTab, setCategoryTab] = useState<DocumentCategoryTab>("COMPANY");
+  const [categoryTab, setCategoryTab] = useState<DocumentCategoryTab>("ALL");
   const [departmentFilter, setDepartmentFilter] = useState<string>("ALL");
   const [positionFilter, setPositionFilter] = useState<string>("ALL");
   const [formOpen, setFormOpen] = useState(false);
@@ -136,43 +131,65 @@ export default function DocumentsPage() {
     return docs;
   }, [documents, departmentFilter, positionFilter, positions]);
 
-  function hasPositionOrDepartmentAssignment(doc: DocumentListItem): boolean {
+  function isCompanyWideDocument(doc: DocumentListItem): boolean {
+    return doc.scope === "COMPANY_WIDE";
+  }
+
+  function isDepartmentSpecificDocument(doc: DocumentListItem): boolean {
     return (
-      doc.departmentIds.length > 0 ||
-      doc.positionIds.length > 0 ||
-      doc.assignmentTags.some((tag) => tag.kind === "department" || tag.kind === "position")
+      doc.scope === "POSITION_SPECIFIC" &&
+      doc.departmentIds.length > 0 &&
+      doc.positionIds.length === 0
     );
   }
 
-  const tabbedDocuments = useMemo(() => {
-    if (categoryTab === "COMPANY") {
-      return filteredDocuments.filter((doc) => doc.scope === "COMPANY_WIDE");
-    }
-    if (categoryTab === "POSITION_DEPARTMENT") {
-      return filteredDocuments.filter(
-        (doc) =>
-          doc.scope === "POSITION_SPECIFIC" && hasPositionOrDepartmentAssignment(doc)
-      );
-    }
-    return filteredDocuments.filter(
-      (doc) =>
-        doc.scope === "POSITION_SPECIFIC" && !hasPositionOrDepartmentAssignment(doc)
+  function isPositionSpecificDocument(doc: DocumentListItem): boolean {
+    return doc.scope === "POSITION_SPECIFIC" && doc.positionIds.length > 0;
+  }
+
+  function isEmployeeSpecificDocument(doc: DocumentListItem): boolean {
+    return (
+      doc.scope === "POSITION_SPECIFIC" &&
+      doc.departmentIds.length === 0 &&
+      doc.positionIds.length === 0
     );
-  }, [filteredDocuments, categoryTab]);
+  }
+
+  const scopedGroups = useMemo(() => {
+    const docs = filteredDocuments;
+    return {
+      company: docs.filter(isCompanyWideDocument),
+      department: docs.filter(isDepartmentSpecificDocument),
+      position: docs.filter(isPositionSpecificDocument),
+      employee: docs.filter(isEmployeeSpecificDocument),
+    };
+  }, [filteredDocuments]);
+
+  const tabbedDocuments = useMemo(() => {
+    if (categoryTab === "ALL") {
+      return filteredDocuments;
+    }
+    if (categoryTab === "COMPANY") {
+      return scopedGroups.company;
+    }
+    if (categoryTab === "DEPARTMENT") {
+      return scopedGroups.department;
+    }
+    if (categoryTab === "POSITION") {
+      return scopedGroups.position;
+    }
+    return scopedGroups.employee;
+  }, [filteredDocuments, categoryTab, scopedGroups]);
 
   const tabCounts = useMemo(
     () => ({
-      company: filteredDocuments.filter((doc) => doc.scope === "COMPANY_WIDE").length,
-      positionDepartment: filteredDocuments.filter(
-        (doc) =>
-          doc.scope === "POSITION_SPECIFIC" && hasPositionOrDepartmentAssignment(doc)
-      ).length,
-      person: filteredDocuments.filter(
-        (doc) =>
-          doc.scope === "POSITION_SPECIFIC" && !hasPositionOrDepartmentAssignment(doc)
-      ).length,
+      all: filteredDocuments.length,
+      company: scopedGroups.company.length,
+      department: scopedGroups.department.length,
+      position: scopedGroups.position.length,
+      employee: scopedGroups.employee.length,
     }),
-    [filteredDocuments]
+    [filteredDocuments, scopedGroups]
   );
 
   const hasFilters =
@@ -190,6 +207,117 @@ export default function DocumentsPage() {
   function openEdit(doc: DocumentListItem) {
     setEditingDoc(doc);
     setFormOpen(true);
+  }
+
+  function scopeVisual(doc: DocumentListItem) {
+    if (isCompanyWideDocument(doc)) {
+      return {
+        pillClass: "bg-blue-50",
+        icon: <Building2 className="h-4 w-4 text-blue-600" />,
+        label: "Company-wide",
+      };
+    }
+    if (isDepartmentSpecificDocument(doc)) {
+      return {
+        pillClass: "bg-emerald-50",
+        icon: <Users className="h-4 w-4 text-emerald-600" />,
+        label: "Department",
+      };
+    }
+    if (isPositionSpecificDocument(doc)) {
+      return {
+        pillClass: "bg-amber-50",
+        icon: <Briefcase className="h-4 w-4 text-amber-600" />,
+        label: "Position",
+      };
+    }
+    return {
+      pillClass: "bg-pink-50",
+      icon: <User className="h-4 w-4 text-pink-600" />,
+      label: "Employee",
+    };
+  }
+
+  function renderDocumentRow(doc: DocumentListItem) {
+    const visual = scopeVisual(doc);
+    const assignmentTags = doc.assignmentTags.filter(
+      (tag) => tag.kind === "department" || tag.kind === "position"
+    );
+    const visibleTags = assignmentTags.slice(0, 3);
+    const extraTagCount = Math.max(0, assignmentTags.length - 3);
+
+    return (
+      <tr key={doc.id} className="border-t align-top">
+        <td className="px-4 py-3">
+          <div className="flex items-start gap-3">
+            <div
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md ${visual.pillClass}`}
+              aria-label={visual.label}
+            >
+              {visual.icon}
+            </div>
+            <div className="min-w-0">
+              <div className="font-medium">{doc.title}</div>
+              <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                {doc.description || "No description"}
+              </div>
+            </div>
+          </div>
+        </td>
+        <td className="px-4 py-3">
+          {isCompanyWideDocument(doc) ? (
+            <Badge variant="secondary" className="text-xs">
+              All employees
+            </Badge>
+          ) : assignmentTags.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {visibleTags.map((tag) => (
+                <Badge key={`${tag.kind}-${tag.id}`} variant="secondary" className="text-xs">
+                  {tag.label}
+                </Badge>
+              ))}
+              {extraTagCount > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  +{extraTagCount} more
+                </Badge>
+              )}
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-dashed text-xs"
+              onClick={() => setAssignDoc(doc)}
+            >
+              + Assign
+            </Button>
+          )}
+        </td>
+        <td className="px-4 py-3">
+          <DocumentTypeBadge type={doc.documentType} />
+        </td>
+        <td className="px-4 py-3 text-sm text-muted-foreground">
+          {formatDisplayDate(doc.updatedAt)}
+        </td>
+        <td className="px-4 py-3">
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                <Eye className="h-4 w-4" />
+              </a>
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => openEdit(doc)}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+            {doc.scope === "POSITION_SPECIFIC" && (
+              <Button variant="outline" size="sm" onClick={() => setAssignDoc(doc)}>
+                <Users className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
   }
 
   return (
@@ -282,20 +410,53 @@ export default function DocumentsPage() {
         </div>
       </div>
 
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Company-wide</p>
+            <p className="mt-1 text-2xl font-semibold">{tabCounts.company}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-emerald-500">
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Department</p>
+            <p className="mt-1 text-2xl font-semibold">{tabCounts.department}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-amber-500">
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Position</p>
+            <p className="mt-1 text-2xl font-semibold">{tabCounts.position}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-pink-500">
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Employee</p>
+            <p className="mt-1 text-2xl font-semibold">{tabCounts.employee}</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <Tabs
         value={categoryTab}
         onValueChange={(value) => setCategoryTab(value as DocumentCategoryTab)}
         className="mb-4"
       >
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="ALL">
+            All ({tabCounts.all})
+          </TabsTrigger>
           <TabsTrigger value="COMPANY">
-            Company specific ({tabCounts.company})
+            Company-wide ({tabCounts.company})
           </TabsTrigger>
-          <TabsTrigger value="POSITION_DEPARTMENT">
-            Position/Department specific ({tabCounts.positionDepartment})
+          <TabsTrigger value="DEPARTMENT">
+            Department ({tabCounts.department})
           </TabsTrigger>
-          <TabsTrigger value="PERSON">
-            Person specific ({tabCounts.person})
+          <TabsTrigger value="POSITION">
+            Position ({tabCounts.position})
+          </TabsTrigger>
+          <TabsTrigger value="EMPLOYEE">
+            Employee ({tabCounts.employee})
           </TabsTrigger>
         </TabsList>
       </Tabs>
@@ -303,11 +464,9 @@ export default function DocumentsPage() {
       <DataTable>
         <thead className="bg-muted/50">
           <tr className="text-left">
-            <th className="px-4 py-3 font-medium">Title</th>
+            <th className="px-4 py-3 font-medium">Document</th>
+            <th className="px-4 py-3 font-medium">Assignment</th>
             <th className="px-4 py-3 font-medium">Type</th>
-            <th className="px-4 py-3 font-medium">Scope</th>
-            <th className="px-4 py-3 font-medium">Department / Position</th>
-            <th className="px-4 py-3 font-medium">Status</th>
             <th className="px-4 py-3 font-medium">Updated</th>
             <th className="px-4 py-3 font-medium text-right">Actions</th>
           </tr>
@@ -315,93 +474,57 @@ export default function DocumentsPage() {
         <tbody>
           {isLoading ? (
             Array.from({ length: 6 }).map((_, index) => (
-              <TableRowSkeleton key={index} columns={7} />
+              <TableRowSkeleton key={index} columns={5} />
             ))
           ) : tabbedDocuments.length === 0 ? (
             <tr>
-              <td colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">
+              <td colSpan={5} className="px-4 py-12 text-center text-sm text-muted-foreground">
                 {hasFilters
                   ? "No documents match the selected filters."
                   : "No documents in this tab yet."}
               </td>
             </tr>
+          ) : categoryTab === "ALL" ? (
+            <>
+              <tr className="bg-muted/70 sticky top-0 z-[1]">
+                <th
+                  colSpan={5}
+                  className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  Company-wide - all employees ({scopedGroups.company.length})
+                </th>
+              </tr>
+              {scopedGroups.company.map((doc) => renderDocumentRow(doc))}
+              <tr className="bg-muted/70 sticky top-0 z-[1]">
+                <th
+                  colSpan={5}
+                  className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  Department-specific ({scopedGroups.department.length})
+                </th>
+              </tr>
+              {scopedGroups.department.map((doc) => renderDocumentRow(doc))}
+              <tr className="bg-muted/70 sticky top-0 z-[1]">
+                <th
+                  colSpan={5}
+                  className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  Position-specific ({scopedGroups.position.length})
+                </th>
+              </tr>
+              {scopedGroups.position.map((doc) => renderDocumentRow(doc))}
+              <tr className="bg-muted/70 sticky top-0 z-[1]">
+                <th
+                  colSpan={5}
+                  className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                >
+                  Employee-specific ({scopedGroups.employee.length})
+                </th>
+              </tr>
+              {scopedGroups.employee.map((doc) => renderDocumentRow(doc))}
+            </>
           ) : (
-            tabbedDocuments.map((doc) => {
-              const visibleTags = doc.assignmentTags.slice(0, 2);
-              const extraTagCount = Math.max(0, doc.assignmentTags.length - 2);
-
-              return (
-                <tr key={doc.id} className="border-t align-top">
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{doc.title}</div>
-                    <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                      {doc.description || "No description"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <DocumentTypeBadge type={doc.documentType} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant="outline">
-                      {doc.scope === "COMPANY_WIDE" ? "Company-wide" : "Position-specific"}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    {doc.scope === "COMPANY_WIDE" ? (
-                      <span className="text-xs text-muted-foreground">All employees</span>
-                    ) : doc.assignmentTags.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {visibleTags.map((tag) => (
-                          <Badge key={`${tag.kind}-${tag.id}`} variant="secondary" className="text-xs">
-                            {tag.label}
-                          </Badge>
-                        ))}
-                        {extraTagCount > 0 && (
-                          <Badge variant="secondary" className="text-xs">
-                            +{extraTagCount} more
-                          </Badge>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Unassigned</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant="outline" className={statusBadgeClass(doc.status, doc.isActive)}>
-                      {doc.status === "ARCHIVED"
-                        ? "Archived"
-                        : doc.isActive
-                          ? "Active"
-                          : "Inactive"}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-muted-foreground">
-                    {formatDisplayDate(doc.updatedAt)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
-                          <Eye className="h-4 w-4" />
-                        </a>
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => openEdit(doc)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      {doc.scope === "POSITION_SPECIFIC" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setAssignDoc(doc)}
-                        >
-                          <Users className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })
+            tabbedDocuments.map((doc) => renderDocumentRow(doc))
           )}
         </tbody>
       </DataTable>
