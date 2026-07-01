@@ -27,6 +27,13 @@ import { formatDisplayDate } from "@/lib/dates";
 
 type DepartmentOption = { id: string; name: string };
 type PositionOption = { id: string; name: string; department: { id: string; name: string } };
+type EmployeeOption = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  department?: { id: string; name: string } | null;
+  position?: { id: string; name: string } | null;
+};
 
 type DocumentCategoryTab = "ALL" | "COMPANY" | "DEPARTMENT" | "POSITION" | "EMPLOYEE";
 
@@ -39,6 +46,7 @@ export default function DocumentsPage() {
   const [categoryTab, setCategoryTab] = useState<DocumentCategoryTab>("ALL");
   const [departmentFilter, setDepartmentFilter] = useState<string>("ALL");
   const [positionFilter, setPositionFilter] = useState<string>("ALL");
+  const [employeeFilter, setEmployeeFilter] = useState<string>("ALL");
   const [formOpen, setFormOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<DocumentListItem | null>(null);
   const [assignDoc, setAssignDoc] = useState<DocumentListItem | null>(null);
@@ -81,11 +89,57 @@ export default function DocumentsPage() {
     },
   });
 
+  const { data: employees } = useQuery({
+    queryKey: ["employees-for-documents-filter"],
+    queryFn: async () => {
+      const res = await fetch("/api/employees?limit=200&status=ACTIVE");
+      const json = await res.json();
+      return (json.data?.employees ?? []) as EmployeeOption[];
+    },
+  });
+
+  const selectedEmployee = useMemo(
+    () => (employees ?? []).find((employee) => employee.id === employeeFilter) ?? null,
+    [employees, employeeFilter]
+  );
+
+  const { data: employeeDirectDocIds, isLoading: isLoadingEmployeeAssignments } = useQuery({
+    queryKey: ["documents-employee-assignments", employeeFilter, (documents ?? []).map((d) => d.id).join(",")],
+    enabled: employeeFilter !== "ALL" && (documents?.length ?? 0) > 0,
+    queryFn: async () => {
+      const docs = documents ?? [];
+      const directIds = new Set<string>();
+      await Promise.all(
+        docs.map(async (doc) => {
+          const res = await fetch(`/api/documents/${doc.id}/assign`);
+          if (!res.ok) return;
+          const json = await res.json();
+          const employeeIds: string[] = json.data?.employeeIds ?? [];
+          if (employeeIds.includes(employeeFilter)) {
+            directIds.add(doc.id);
+          }
+        })
+      );
+      return Array.from(directIds);
+    },
+  });
+
+  const employeeDirectDocIdSet = useMemo(
+    () => new Set(employeeDirectDocIds ?? []),
+    [employeeDirectDocIds]
+  );
+
   const positionOptions = useMemo(() => {
     const list = positions ?? [];
     if (departmentFilter === "ALL") return list;
     return list.filter((position) => position.department?.id === departmentFilter);
   }, [positions, departmentFilter]);
+
+  useEffect(() => {
+    if (categoryTab !== "EMPLOYEE" && employeeFilter !== "ALL") {
+      setEmployeeFilter("ALL");
+    }
+  }, [categoryTab, employeeFilter]);
 
   useEffect(() => {
     if (positionFilter === "ALL") return;
@@ -128,8 +182,28 @@ export default function DocumentsPage() {
       });
     }
 
+    if (employeeFilter !== "ALL" && selectedEmployee) {
+      const selectedDeptId = selectedEmployee.department?.id ?? null;
+      const selectedPositionId = selectedEmployee.position?.id ?? null;
+      docs = docs.filter((doc) => {
+        if (doc.scope === "COMPANY_WIDE") return true;
+        if (employeeDirectDocIdSet.has(doc.id)) return true;
+        if (selectedDeptId && doc.departmentIds.includes(selectedDeptId)) return true;
+        if (selectedPositionId && doc.positionIds.includes(selectedPositionId)) return true;
+        return false;
+      });
+    }
+
     return docs;
-  }, [documents, departmentFilter, positionFilter, positions]);
+  }, [
+    documents,
+    departmentFilter,
+    positionFilter,
+    employeeFilter,
+    selectedEmployee,
+    employeeDirectDocIdSet,
+    positions,
+  ]);
 
   function isCompanyWideDocument(doc: DocumentListItem): boolean {
     return doc.scope === "COMPANY_WIDE";
@@ -197,7 +271,8 @@ export default function DocumentsPage() {
     typeFilter !== "ALL" ||
     statusFilter !== "all" ||
     departmentFilter !== "ALL" ||
-    positionFilter !== "ALL";
+    positionFilter !== "ALL" ||
+    employeeFilter !== "ALL";
 
   function openCreate() {
     setEditingDoc(null);
@@ -334,8 +409,40 @@ export default function DocumentsPage() {
         }
       />
 
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Company-wide</p>
+            <p className="mt-1 text-2xl font-semibold">{tabCounts.company}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-emerald-500">
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Department</p>
+            <p className="mt-1 text-2xl font-semibold">{tabCounts.department}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-amber-500">
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Position</p>
+            <p className="mt-1 text-2xl font-semibold">{tabCounts.position}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-pink-500">
+          <CardContent className="p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Employee</p>
+            <p className="mt-1 text-2xl font-semibold">{tabCounts.employee}</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="sticky top-0 z-10 mb-6 rounded-lg border bg-background/95 p-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+        <div
+          className={cn(
+            "grid gap-3 md:grid-cols-2",
+            categoryTab === "EMPLOYEE" ? "xl:grid-cols-7" : "xl:grid-cols-6"
+          )}
+        >
           <Input
             placeholder="Search by title"
             value={search}
@@ -368,6 +475,21 @@ export default function DocumentsPage() {
               ))}
             </SelectContent>
           </Select>
+          {categoryTab === "EMPLOYEE" && (
+            <Select value={employeeFilter} onValueChange={setEmployeeFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Employees" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Employees</SelectItem>
+                {(employees ?? []).map((employee) => (
+                  <SelectItem key={employee.id} value={employee.id}>
+                    {employee.firstName} {employee.lastName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={typeFilter} onValueChange={setTypeFilter}>
             <SelectTrigger>
               <SelectValue placeholder="All Types" />
@@ -402,39 +524,13 @@ export default function DocumentsPage() {
                 setStatusFilter("all");
                 setDepartmentFilter("ALL");
                 setPositionFilter("ALL");
+                setEmployeeFilter("ALL");
               }}
             >
               Clear Filters
             </Button>
           </div>
         </div>
-      </div>
-
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Company-wide</p>
-            <p className="mt-1 text-2xl font-semibold">{tabCounts.company}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-emerald-500">
-          <CardContent className="p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Department</p>
-            <p className="mt-1 text-2xl font-semibold">{tabCounts.department}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-amber-500">
-          <CardContent className="p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Position</p>
-            <p className="mt-1 text-2xl font-semibold">{tabCounts.position}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-l-4 border-l-pink-500">
-          <CardContent className="p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Employee</p>
-            <p className="mt-1 text-2xl font-semibold">{tabCounts.employee}</p>
-          </CardContent>
-        </Card>
       </div>
 
       <Tabs
@@ -472,7 +568,7 @@ export default function DocumentsPage() {
           </tr>
         </thead>
         <tbody>
-          {isLoading ? (
+          {isLoading || isLoadingEmployeeAssignments ? (
             Array.from({ length: 6 }).map((_, index) => (
               <TableRowSkeleton key={index} columns={5} />
             ))
