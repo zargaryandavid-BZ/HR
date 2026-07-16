@@ -235,6 +235,8 @@ model User {
   sentOnboardingReminders OnboardingReminder[] @relation("SentByUser")
   createdOffboardingTemplates OffboardingTemplate[] @relation("CreatedOffboardingTemplates")
   triggeredOffboardings OffboardingInstance[] @relation("TriggeredOffboarding")
+  addedPointViolations PointViolation[] @relation("PointViolationAddedBy")
+  editedPointViolations PointViolation[] @relation("PointViolationEditedBy")
 }
 
 model Employee {
@@ -307,6 +309,29 @@ model Employee {
   identityDocuments     EmployeeIdentityDocument[]
   offboardingInstances  OffboardingInstance[]
   leaveAccrualLogs      LeaveAccrualLog[]
+  pointViolations       PointViolation[]
+}
+
+model PointViolation {
+  id            String    @id @default(cuid())
+  employeeId    String
+  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  points        Float
+  reason        String
+  violationType String?
+  incidentDate  DateTime
+  expiresAt     DateTime
+  isExpired     Boolean   @default(false)
+  addedById     String
+  addedBy       User      @relation("PointViolationAddedBy", fields: [addedById], references: [id])
+  editedAt      DateTime?
+  editedById    String?
+  editedBy      User?     @relation("PointViolationEditedBy", fields: [editedById], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([employeeId, isExpired, expiresAt])
+  @@index([incidentDate])
 }
 
 model EmployeeIdentityDocument {
