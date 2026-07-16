@@ -26,6 +26,7 @@ const TABLES = [
   "OnboardingStep",
   "OnboardingStepProgress",
   "OnboardingTemplate",
+  "PointViolation",
   "Position",
   "Sop",
   "SopAcknowledgment",
