@@ -15,6 +15,7 @@ import {
   UserMinus,
   ScanLine,
   Briefcase,
+  CircleAlert,
 } from "lucide-react";
 import { Role } from "@prisma/client";
 
@@ -166,6 +167,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Leave Balances",
     href: "/admin/leave/balances",
     icon: Wallet,
+    roles: ["HR_ADMIN", "SUPER_ADMIN"],
+  },
+  {
+    label: "Points",
+    href: "/admin/points",
+    icon: CircleAlert,
     roles: ["HR_ADMIN", "SUPER_ADMIN"],
   },
   {
