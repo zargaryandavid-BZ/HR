@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "dotenv -e .env.local -- next dev",
     "dev:clean": "rm -rf .next && next dev",
     "build": "prisma migrate resolve --rolled-back 20250610000000_document_assignment_sent_at || true && prisma migrate deploy && next build",
     "start": "next start",
