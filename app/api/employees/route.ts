@@ -12,11 +12,11 @@ import { getEmployeeIdsWithExpiringDocuments } from "@/lib/identity-documents/se
 export async function GET(request: NextRequest) {
   try {
     // #region agent log
-    fetch('http://127.0.0.1:7374/ingest/7a917bd3-06c4-4038-afd9-2a1b75bd40c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f611a2'},body:JSON.stringify({sessionId:'f611a2',location:'app/api/employees/route.ts:13',message:'GET /api/employees called',data:{url:request.url},timestamp:Date.now(),hypothesisId:'H-A'})}).catch(()=>{});
+    console.log('[debug:employees] GET called, env check:', { hasDatabaseUrl: !!process.env.DATABASE_URL, hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL, hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY });
     // #endregion
     const session = await getSession();
     // #region agent log
-    fetch('http://127.0.0.1:7374/ingest/7a917bd3-06c4-4038-afd9-2a1b75bd40c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f611a2'},body:JSON.stringify({sessionId:'f611a2',location:'app/api/employees/route.ts:17',message:'session result',data:{sessionExists:!!session,role:session?.role??null},timestamp:Date.now(),hypothesisId:'H-A'})}).catch(()=>{});
+    console.log('[debug:employees] session:', { exists: !!session, role: session?.role ?? null });
     // #endregion
     if (!session) {
       return apiError("Unauthorized", "Not authenticated", 401);
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     // #region agent log
-    fetch('http://127.0.0.1:7374/ingest/7a917bd3-06c4-4038-afd9-2a1b75bd40c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f611a2'},body:JSON.stringify({sessionId:'f611a2',location:'app/api/employees/route.ts:47',message:'prisma query succeeded',data:{employeeCount:employees.length,total},timestamp:Date.now(),hypothesisId:'H-B'})}).catch(()=>{});
+    console.log('[debug:employees] prisma query ok, count:', employees.length);
     // #endregion
     const missingSignedCounts = await getMissingSignedDocumentCounts(allFilteredEmployees);
     const expiringDocEmployeeIds = await getEmployeeIdsWithExpiringDocuments(
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     // #region agent log
-    fetch('http://127.0.0.1:7374/ingest/7a917bd3-06c4-4038-afd9-2a1b75bd40c7',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'f611a2'},body:JSON.stringify({sessionId:'f611a2',location:'app/api/employees/route.ts:catch',message:'GET /api/employees threw',data:{error:error instanceof Error?error.message:String(error),stack:error instanceof Error?error.stack?.slice(0,500):null},timestamp:Date.now(),hypothesisId:'H-B H-C H-D'})}).catch(()=>{});
+    console.error('[debug:employees] CATCH:', error instanceof Error ? error.message : String(error), error instanceof Error ? error.stack : '');
     // #endregion
     console.error("List employees error:", error);
     return apiError("Server error", "Failed to fetch employees", 500);
